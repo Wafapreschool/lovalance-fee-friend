@@ -20,15 +20,13 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded }: AddStuden
     year_joined: new Date().getFullYear(),
     parent_phone: "",
     student_id: "",
+    id_card_number: "",
     password: ""
   });
   const [loading, setLoading] = useState(false);
 
-  const generateStudentId = (fullName: string) => {
-    const names = fullName.trim().split(' ');
-    const secondName = names.length > 1 ? names[1] : names[0];
-    const timestamp = Date.now().toString().slice(-4);
-    return `${secondName.toLowerCase()}${timestamp}`;
+  const generateStudentId = (idCardNumber: string) => {
+    return idCardNumber;
   };
 
   const generatePassword = () => {
@@ -38,7 +36,7 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded }: AddStuden
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.full_name || !formData.class_name || !formData.parent_phone) {
+    if (!formData.full_name || !formData.class_name || !formData.parent_phone || !formData.id_card_number) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -46,7 +44,7 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded }: AddStuden
     setLoading(true);
     
     try {
-      const studentId = formData.student_id || generateStudentId(formData.full_name);
+      const studentId = formData.student_id || generateStudentId(formData.id_card_number);
       const password = formData.password || generatePassword();
 
       const { error } = await supabase
@@ -73,6 +71,7 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded }: AddStuden
         year_joined: new Date().getFullYear(),
         parent_phone: "",
         student_id: "",
+        id_card_number: "",
         password: ""
       });
       onStudentAdded();
@@ -101,27 +100,38 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded }: AddStuden
             <Input
               id="full_name"
               value={formData.full_name}
-              onChange={(e) => {
-                const newName = e.target.value;
-                setFormData({ 
-                  ...formData, 
-                  full_name: newName,
-                  student_id: newName ? generateStudentId(newName) : ""
-                });
-              }}
+              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
               placeholder="Enter student's full name"
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="student_id">Student ID</Label>
+            <Label htmlFor="id_card_number">Student ID Card Number *</Label>
+            <Input
+              id="id_card_number"
+              value={formData.id_card_number}
+              onChange={(e) => {
+                const idCardNumber = e.target.value;
+                setFormData({ 
+                  ...formData, 
+                  id_card_number: idCardNumber,
+                  student_id: idCardNumber ? generateStudentId(idCardNumber) : ""
+                });
+              }}
+              placeholder="Enter student's ID card number"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="student_id">Student ID (Login ID)</Label>
             <Input
               id="student_id"
               value={formData.student_id}
-              onChange={(e) => setFormData({ ...formData, student_id: e.target.value })}
-              placeholder="Auto-generated from name"
+              placeholder="Auto-generated from ID card number"
               readOnly
+              className="bg-muted"
             />
           </div>
 
