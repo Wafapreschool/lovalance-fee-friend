@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Bell, CreditCard, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -27,6 +29,22 @@ interface FeeManagementProps {
 export const FeeManagement = ({ onRefresh }: FeeManagementProps) => {
   const [fees, setFees] = useState<FeeRecord[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const checkOverdueFees = async () => {
+    try {
+      const response = await supabase.functions.invoke('check-overdue-fees');
+      if (response.error) {
+        console.error('Error checking overdue fees:', response.error);
+        toast.error("Failed to check overdue fees");
+      } else {
+        toast.success("Overdue fees check completed");
+        fetchFees(); // Refresh the list
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error("An error occurred while checking overdue fees");
+    }
+  };
 
   const fetchFees = async () => {
     try {
@@ -134,8 +152,35 @@ export const FeeManagement = ({ onRefresh }: FeeManagementProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Fee Management</CardTitle>
-        <CardDescription>Track and manage student fee payments</CardDescription>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Professional Fee Management
+            </CardTitle>
+            <CardDescription>Automated fee tracking with BML Gateway integration and SMS notifications</CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={checkOverdueFees}
+              className="flex items-center gap-2"
+            >
+              <Bell className="h-4 w-4" />
+              Check Overdue & Send Reminders
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={fetchFees}
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="rounded-md border">

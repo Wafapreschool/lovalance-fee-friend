@@ -64,6 +64,50 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          notification_type: string
+          phone_number: string
+          sent_at: string | null
+          status: string | null
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          notification_type: string
+          phone_number: string
+          sent_at?: string | null
+          status?: string | null
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          notification_type?: string
+          phone_number?: string
+          sent_at?: string | null
+          status?: string | null
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       school_months: {
         Row: {
           created_at: string
@@ -132,9 +176,13 @@ export type Database = {
       student_fees: {
         Row: {
           amount: number
+          bml_payment_id: string | null
           created_at: string
           id: string
+          is_overdue: boolean | null
+          notification_sent: boolean | null
           payment_date: string | null
+          reminder_sent: boolean | null
           school_month_id: string
           status: string
           student_id: string
@@ -143,9 +191,13 @@ export type Database = {
         }
         Insert: {
           amount: number
+          bml_payment_id?: string | null
           created_at?: string
           id?: string
+          is_overdue?: boolean | null
+          notification_sent?: boolean | null
           payment_date?: string | null
+          reminder_sent?: boolean | null
           school_month_id: string
           status?: string
           student_id: string
@@ -154,9 +206,13 @@ export type Database = {
         }
         Update: {
           amount?: number
+          bml_payment_id?: string | null
           created_at?: string
           id?: string
+          is_overdue?: boolean | null
+          notification_sent?: boolean | null
           payment_date?: string | null
+          reminder_sent?: boolean | null
           school_month_id?: string
           status?: string
           student_id?: string

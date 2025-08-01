@@ -328,13 +328,34 @@ export const SchoolYearManagement = () => {
         amount: feeAmount
       }));
 
-      const { error } = await supabase
+      const { data: insertedFees, error } = await supabase
         .from('student_fees')
-        .insert(feeRecords);
+        .insert(feeRecords)
+        .select('id');
 
       if (error) throw error;
 
-      toast.success(`Fees assigned to ${selectedStudents.length} students`);
+      // Send automatic fee assignment notifications
+      if (insertedFees && insertedFees.length > 0) {
+        try {
+          const response = await supabase.functions.invoke('notify-fee-assignment', {
+            body: { 
+              studentFeeIds: insertedFees.map(fee => fee.id)
+            }
+          });
+
+          if (response.error) {
+            console.error('Error sending notifications:', response.error);
+            toast.error("Fees assigned but failed to send notifications");
+          } else {
+            toast.success(`Fees assigned to ${selectedStudents.length} students and notifications sent`);
+          }
+        } catch (notificationError) {
+          console.error('Error with notification service:', notificationError);
+          toast.success(`Fees assigned to ${selectedStudents.length} students (notifications may be delayed)`);
+        }
+      }
+
       setShowStudentDialog(false);
       setSelectedStudents([]);
       setFeeAmount(3500);
