@@ -62,7 +62,7 @@ const Index = () => {
         {currentUser.type === 'admin' ? (
           <AdminDashboard />
         ) : (
-          <ParentDashboard />
+          <ParentDashboard currentUser={currentUser} />
         )}
       </div>
     );

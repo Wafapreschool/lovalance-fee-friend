@@ -19,7 +19,11 @@ interface PaymentHistory {
   transactionId?: string;
 }
 
-export const ParentDashboard = () => {
+interface ParentDashboardProps {
+  currentUser?: { id: string; name: string; type: string } | null;
+}
+
+export const ParentDashboard = ({ currentUser }: ParentDashboardProps = {}) => {
   const { user, signOut } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
@@ -45,9 +49,14 @@ export const ParentDashboard = () => {
 
   const fetchStudentsData = async () => {
     try {
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select('*')
+      // If currentUser is provided, filter by specific student
+      let studentsQuery = supabase.from('students').select('*');
+      
+      if (currentUser?.id) {
+        studentsQuery = studentsQuery.eq('id', currentUser.id);
+      }
+      
+      const { data: studentsData, error: studentsError } = await studentsQuery
         .order('created_at', { ascending: false });
 
       if (studentsError) {

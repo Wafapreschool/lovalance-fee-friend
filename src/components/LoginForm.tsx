@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft, LogIn } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface LoginFormProps {
   userType: 'admin' | 'parent';
@@ -17,14 +19,15 @@ export const LoginForm = ({ userType, onLogin, onBack }: LoginFormProps) => {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { signIn } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate login validation
-    setTimeout(() => {
+    try {
       if (userType === 'admin') {
+        // Admin login with hardcoded credentials
         if (studentId === 'admin' && password === 'admin123') {
           onLogin({ id: 'admin', name: 'Administrator', type: 'admin' });
           toast({
@@ -39,23 +42,43 @@ export const LoginForm = ({ userType, onLogin, onBack }: LoginFormProps) => {
           });
         }
       } else {
-        // Parent login simulation
-        if (studentId && password) {
-          onLogin({ id: studentId, name: `Parent of ${studentId}`, type: 'parent' });
-          toast({
-            title: "Login Successful",
-            description: "Welcome to your parent dashboard",
-          });
-        } else {
+        // Parent login using student database
+        const { data: student, error } = await supabase
+          .from('students')
+          .select('*')
+          .eq('student_id', studentId)
+          .eq('password', password)
+          .single();
+
+        if (error || !student) {
           toast({
             title: "Login Failed",
-            description: "Please enter valid credentials",
+            description: "Invalid student ID or password. Please check your credentials.",
             variant: "destructive",
+          });
+        } else {
+          // Create a session for the parent using student info
+          onLogin({ 
+            id: student.id, 
+            name: `Parent of ${student.full_name}`, 
+            type: 'parent' 
+          });
+          toast({
+            title: "Login Successful",
+            description: `Welcome! You can manage fees for ${student.full_name}`,
           });
         }
       }
+    } catch (error) {
+      console.error('Login error:', error);
+      toast({
+        title: "Login Error",
+        description: "An error occurred during login. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
