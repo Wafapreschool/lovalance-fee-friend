@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentCard, Student } from "./StudentCard";
 import { ParentFeeView } from "./ParentFeeView";
 import { PasswordChangeDialog } from "./PasswordChangeDialog";
-import { useAuth } from "@/hooks/useAuth";
+
 import { toast } from "sonner";
 import { CreditCard, Clock, CheckCircle, AlertCircle, CalendarDays, User, Key, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,13 +24,12 @@ interface ParentDashboardProps {
 }
 
 export const ParentDashboard = ({ currentUser }: ParentDashboardProps = {}) => {
-  const { user, signOut } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Redirect if not authenticated
-  if (!user) {
+  // Redirect if not authenticated (use currentUser instead of Supabase auth user)
+  if (!currentUser) {
     return (
       <div className="container mx-auto py-6">
         <Card className="max-w-md mx-auto">
@@ -187,12 +186,9 @@ export const ParentDashboard = ({ currentUser }: ParentDashboardProps = {}) => {
   };
 
   const handleLogout = async () => {
-    const { error } = await signOut();
-    if (error) {
-      toast.error("Error signing out");
-    } else {
-      toast.success("Signed out successfully");
-    }
+    // Since we're using local auth, just redirect to home page
+    window.location.href = '/';
+    toast.success("Signed out successfully");
   };
 
   return (
