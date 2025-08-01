@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentCard, Student } from "./StudentCard";
 import { ParentFeeView } from "./ParentFeeView";
+import { PasswordChangeDialog } from "./PasswordChangeDialog";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { CreditCard, Clock, CheckCircle, AlertCircle, CalendarDays } from "lucide-react";
+import { CreditCard, Clock, CheckCircle, AlertCircle, CalendarDays, User, Key, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PaymentHistory {
@@ -18,9 +20,24 @@ interface PaymentHistory {
 }
 
 export const ParentDashboard = () => {
+  const { user, signOut } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Redirect if not authenticated
+  if (!user) {
+    return (
+      <div className="container mx-auto py-6">
+        <Card className="max-w-md mx-auto">
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>Please login as a parent to access this dashboard.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   const totalDue = students
     .filter(s => s.currentFee.status === 'pending')
@@ -99,6 +116,49 @@ export const ParentDashboard = () => {
 
   useEffect(() => {
     fetchStudentsData();
+
+    // Set up real-time subscriptions for automatic updates
+    const studentsChannel = supabase
+      .channel('students-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'students' },
+        () => {
+          console.log('Students updated, refreshing data...');
+          fetchStudentsData();
+        }
+      )
+      .subscribe();
+
+    const feesChannel = supabase
+      .channel('fees-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'student_fees' },
+        () => {
+          console.log('Student fees updated, refreshing data...');
+          fetchStudentsData();
+        }
+      )
+      .subscribe();
+
+    const schoolMonthsChannel = supabase
+      .channel('school-months-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'school_months' },
+        () => {
+          console.log('School months updated, refreshing data...');
+          fetchStudentsData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(studentsChannel);
+      supabase.removeChannel(feesChannel);
+      supabase.removeChannel(schoolMonthsChannel);
+    };
   }, []);
 
   const handlePayFee = (studentId: string) => {
@@ -117,16 +177,39 @@ export const ParentDashboard = () => {
     }
   };
 
+  const handleLogout = async () => {
+    const { error } = await signOut();
+    if (error) {
+      toast.error("Error signing out");
+    } else {
+      toast.success("Signed out successfully");
+    }
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6">
-      {/* Welcome Section */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">
-          Welcome Back!
-        </h1>
-        <p className="text-muted-foreground">
-          View and manage your children's monthly fee payments
-        </p>
+      {/* Welcome Section with Profile Actions */}
+      <div className="flex justify-between items-start">
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">
+            Welcome Back!
+          </h1>
+          <p className="text-muted-foreground">
+            View and manage your children's monthly fee payments
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <PasswordChangeDialog>
+            <Button variant="outline" size="sm">
+              <Key className="h-4 w-4 mr-2" />
+              Change Password
+            </Button>
+          </PasswordChangeDialog>
+          <Button variant="outline" size="sm" onClick={handleLogout}>
+            <LogOut className="h-4 w-4 mr-2" />
+            Logout
+          </Button>
+        </div>
       </div>
 
       {/* Quick Stats */}
