@@ -1,55 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentCard, Student } from "./StudentCard";
+import { AddStudentForm } from "./AddStudentForm";
 import { Users, CreditCard, TrendingUp, AlertCircle } from "lucide-react";
-
-// Mock data for demonstration
-const mockStudents: Student[] = [
-  {
-    id: "1",
-    name: "Ahmed Ali",
-    class: "KG1",
-    yearJoined: 2023,
-    currentFee: {
-      month: "January",
-      year: 2024,
-      amount: 3500,
-      status: "pending",
-      dueDate: "2024-01-15"
-    }
-  },
-  {
-    id: "2",
-    name: "Mariam Hassan",
-    class: "KG2",
-    yearJoined: 2022,
-    currentFee: {
-      month: "January",
-      year: 2024,
-      amount: 3500,
-      status: "paid",
-      dueDate: "2024-01-15"
-    }
-  },
-  {
-    id: "3", 
-    name: "Ibrahim Mohamed",
-    class: "KG1",
-    yearJoined: 2023,
-    currentFee: {
-      month: "January",
-      year: 2024,
-      amount: 3500,
-      status: "pending",
-      dueDate: "2024-01-15"
-    }
-  }
-];
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export const AdminDashboard = () => {
-  const [students] = useState<Student[]>(mockStudents);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const totalStudents = students.length;
   const paidFees = students.filter(s => s.currentFee.status === 'paid').length;
@@ -58,8 +20,53 @@ export const AdminDashboard = () => {
     .filter(s => s.currentFee.status === 'paid')
     .reduce((sum, s) => sum + s.currentFee.amount, 0);
 
+  const fetchStudents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('students')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching students:', error);
+        toast.error("Failed to load students");
+        return;
+      }
+
+      // Transform data to match Student interface
+      const transformedStudents: Student[] = (data || []).map(student => ({
+        id: student.id,
+        name: student.full_name,
+        class: student.class_name,
+        yearJoined: student.year_joined,
+        currentFee: {
+          month: "January",
+          year: 2024,
+          amount: 3500,
+          status: "pending",
+          dueDate: "2024-01-15"
+        }
+      }));
+
+      setStudents(transformedStudents);
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error("An error occurred while loading students");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudents();
+  }, []);
+
   const handleViewStudent = (studentId: string) => {
     console.log("View student:", studentId);
+  };
+
+  const handleStudentAdded = () => {
+    fetchStudents();
   };
 
   return (
@@ -125,19 +132,35 @@ export const AdminDashboard = () => {
               <h2 className="text-2xl font-bold">Student Management</h2>
               <p className="text-muted-foreground">Manage student registrations and information</p>
             </div>
-            <Button variant="gradient">Add New Student</Button>
+            <Button variant="gradient" onClick={() => setShowAddForm(true)}>Add New Student</Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {students.map((student) => (
-              <StudentCard
-                key={student.id}
-                student={student}
-                onViewDetails={handleViewStudent}
-                isParentView={false}
-              />
-            ))}
-          </div>
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="bg-muted h-48 rounded-lg"></div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {students.length > 0 ? (
+                students.map((student) => (
+                  <StudentCard
+                    key={student.id}
+                    student={student}
+                    onViewDetails={handleViewStudent}
+                    isParentView={false}
+                  />
+                ))
+              ) : (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-muted-foreground">No students found. Add your first student to get started.</p>
+                </div>
+              )}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="fees" className="space-y-4">
@@ -170,6 +193,12 @@ export const AdminDashboard = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <AddStudentForm
+        open={showAddForm}
+        onOpenChange={setShowAddForm}
+        onStudentAdded={handleStudentAdded}
+      />
     </div>
   );
 };
