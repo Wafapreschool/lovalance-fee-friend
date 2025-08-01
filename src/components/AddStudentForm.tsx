@@ -192,7 +192,7 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded }: AddStuden
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Adding..." : "Add Student"}
+              {loading ? "Saving..." : "Save Student"}
             </Button>
           </div>
         </form>
