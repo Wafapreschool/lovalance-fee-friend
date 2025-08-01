@@ -48,9 +48,16 @@ export const LoginForm = ({ userType, onLogin, onBack }: LoginFormProps) => {
           .select('*')
           .eq('student_id', studentId)
           .eq('password', password)
-          .single();
+          .maybeSingle();
 
-        if (error || !student) {
+        if (error) {
+          console.error('Database error:', error);
+          toast({
+            title: "Login Error", 
+            description: "Database connection failed. Please try again.",
+            variant: "destructive",
+          });
+        } else if (!student) {
           toast({
             title: "Login Failed",
             description: "Invalid student ID or password. Please check your credentials.",

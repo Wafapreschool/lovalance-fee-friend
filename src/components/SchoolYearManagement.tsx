@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar, Plus, Users, DollarSign } from "lucide-react";
+import { Calendar, Plus, Users, DollarSign, Edit, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -47,6 +48,8 @@ export const SchoolYearManagement = () => {
   const [showStudentDialog, setShowStudentDialog] = useState(false);
   const [selectedYearId, setSelectedYearId] = useState<string>("");
   const [selectedMonthId, setSelectedMonthId] = useState<string>("");
+  const [editingYear, setEditingYear] = useState<SchoolYear | null>(null);
+  const [editingMonth, setEditingMonth] = useState<SchoolMonth | null>(null);
   const [monthForm, setMonthForm] = useState({
     month_name: "",
     month_number: 1,
@@ -122,6 +125,49 @@ export const SchoolYearManagement = () => {
     }
   };
 
+  const updateSchoolYear = async () => {
+    if (!editingYear) return;
+    
+    try {
+      const { error } = await supabase
+        .from('school_years')
+        .update({ year: newYear })
+        .eq('id', editingYear.id);
+
+      if (error) throw error;
+
+      toast.success("School year updated successfully");
+      setShowYearDialog(false);
+      setEditingYear(null);
+      setNewYear(new Date().getFullYear());
+      fetchData();
+    } catch (error: any) {
+      console.error('Error updating school year:', error);
+      if (error.code === '23505') {
+        toast.error("This year already exists");
+      } else {
+        toast.error("Failed to update school year");
+      }
+    }
+  };
+
+  const deleteSchoolYear = async (yearId: string) => {
+    try {
+      const { error } = await supabase
+        .from('school_years')
+        .delete()
+        .eq('id', yearId);
+
+      if (error) throw error;
+
+      toast.success("School year deleted successfully");
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting school year:', error);
+      toast.error("Failed to delete school year");
+    }
+  };
+
   const createSchoolMonth = async () => {
     if (!selectedYearId || !monthForm.month_name || !monthForm.due_date) {
       toast.error("Please fill all required fields");
@@ -151,6 +197,49 @@ export const SchoolYearManagement = () => {
       } else {
         toast.error("Failed to add month");
       }
+    }
+  };
+
+  const updateSchoolMonth = async () => {
+    if (!editingMonth) return;
+    
+    try {
+      const { error } = await supabase
+        .from('school_months')
+        .update({
+          month_name: monthForm.month_name,
+          month_number: monthForm.month_number,
+          due_date: monthForm.due_date
+        })
+        .eq('id', editingMonth.id);
+
+      if (error) throw error;
+
+      toast.success("Month updated successfully");
+      setShowMonthDialog(false);
+      setEditingMonth(null);
+      setMonthForm({ month_name: "", month_number: 1, due_date: "" });
+      fetchData();
+    } catch (error) {
+      console.error('Error updating month:', error);
+      toast.error("Failed to update month");
+    }
+  };
+
+  const deleteSchoolMonth = async (monthId: string) => {
+    try {
+      const { error } = await supabase
+        .from('school_months')
+        .delete()
+        .eq('id', monthId);
+
+      if (error) throw error;
+
+      toast.success("Month deleted successfully");
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting month:', error);
+      toast.error("Failed to delete month");
     }
   };
 
@@ -235,8 +324,8 @@ export const SchoolYearManagement = () => {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create New School Year</DialogTitle>
-              <DialogDescription>Add a new academic year to the system</DialogDescription>
+              <DialogTitle>{editingYear ? 'Edit School Year' : 'Create New School Year'}</DialogTitle>
+              <DialogDescription>{editingYear ? 'Update the academic year' : 'Add a new academic year to the system'}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div>
@@ -251,8 +340,13 @@ export const SchoolYearManagement = () => {
                 />
               </div>
               <div className="flex gap-2">
-                <Button onClick={createSchoolYear} className="flex-1">Create Year</Button>
-                <Button variant="outline" onClick={() => setShowYearDialog(false)}>Cancel</Button>
+                <Button onClick={editingYear ? updateSchoolYear : createSchoolYear} className="flex-1">
+                  {editingYear ? 'Update Year' : 'Create Year'}
+                </Button>
+                <Button variant="outline" onClick={() => {
+                  setShowYearDialog(false);
+                  setEditingYear(null);
+                }}>Cancel</Button>
               </div>
             </div>
           </DialogContent>
@@ -271,64 +365,111 @@ export const SchoolYearManagement = () => {
                   {year.is_active && <Badge variant="default">Active</Badge>}
                 </div>
                 
-                <Dialog open={showMonthDialog} onOpenChange={setShowMonthDialog}>
-                  <DialogTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSelectedYearId(year.id)}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Month
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Add Month to {year.year}</DialogTitle>
-                      <DialogDescription>Configure a new month for fee collection</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="month">Month</Label>
-                        <Select 
-                          value={monthForm.month_name} 
-                          onValueChange={(value) => {
-                            const monthIndex = months.indexOf(value) + 1;
-                            setMonthForm(prev => ({ 
-                              ...prev, 
-                              month_name: value, 
-                              month_number: monthIndex 
-                            }));
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select month" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {months.map((month, index) => (
-                              <SelectItem key={month} value={month}>
-                                {month}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => {
+                      setEditingYear(year);
+                      setNewYear(year.year);
+                      setShowYearDialog(true);
+                    }}
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete School Year</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete the {year.year} academic year? This will also delete all associated months and fees.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteSchoolYear(year.id)}>
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                
+                  <Dialog open={showMonthDialog} onOpenChange={setShowMonthDialog}>
+                    <DialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => {
+                          setSelectedYearId(year.id);
+                          setEditingMonth(null);
+                          setMonthForm({ month_name: "", month_number: 1, due_date: "" });
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Month
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>{editingMonth ? 'Edit' : 'Add'} Month {editingMonth ? `for ${year.year}` : `to ${year.year}`}</DialogTitle>
+                        <DialogDescription>Configure {editingMonth ? 'the' : 'a new'} month for fee collection</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="month">Month</Label>
+                          <Select 
+                            value={monthForm.month_name} 
+                            onValueChange={(value) => {
+                              const monthIndex = months.indexOf(value) + 1;
+                              setMonthForm(prev => ({ 
+                                ...prev, 
+                                month_name: value, 
+                                month_number: monthIndex 
+                              }));
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select month" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {months.map((month, index) => (
+                                <SelectItem key={month} value={month}>
+                                  {month}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="due_date">Due Date</Label>
+                          <Input
+                            id="due_date"
+                            type="date"
+                            value={monthForm.due_date}
+                            onChange={(e) => setMonthForm(prev => ({ ...prev, due_date: e.target.value }))}
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button onClick={editingMonth ? updateSchoolMonth : createSchoolMonth} className="flex-1">
+                            {editingMonth ? 'Update Month' : 'Add Month'}
+                          </Button>
+                          <Button variant="outline" onClick={() => {
+                            setShowMonthDialog(false);
+                            setEditingMonth(null);
+                          }}>Cancel</Button>
+                        </div>
                       </div>
-                      <div>
-                        <Label htmlFor="due_date">Due Date</Label>
-                        <Input
-                          id="due_date"
-                          type="date"
-                          value={monthForm.due_date}
-                          onChange={(e) => setMonthForm(prev => ({ ...prev, due_date: e.target.value }))}
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button onClick={createSchoolMonth} className="flex-1">Add Month</Button>
-                        <Button variant="outline" onClick={() => setShowMonthDialog(false)}>Cancel</Button>
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
             </CardHeader>
             
@@ -346,7 +487,45 @@ export const SchoolYearManagement = () => {
                                 Due: {new Date(month.due_date).toLocaleDateString()}
                               </p>
                             </div>
-                            {month.is_active && <Badge variant="secondary" className="text-xs">Active</Badge>}
+                            <div className="flex items-center gap-2">
+                              {month.is_active && <Badge variant="secondary" className="text-xs">Active</Badge>}
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setEditingMonth(month);
+                                  setMonthForm({
+                                    month_name: month.month_name,
+                                    month_number: month.month_number,
+                                    due_date: month.due_date
+                                  });
+                                  setShowMonthDialog(true);
+                                }}
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Month</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete {month.month_name}? This will also delete all associated fees.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => deleteSchoolMonth(month.id)}>
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           </div>
                           
                           <Dialog open={showStudentDialog} onOpenChange={setShowStudentDialog}>
