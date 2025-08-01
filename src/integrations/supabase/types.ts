@@ -14,7 +14,95 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      fees: {
+        Row: {
+          amount: number
+          created_at: string | null
+          due_date: string
+          id: string
+          month: string
+          payment_date: string | null
+          status: string | null
+          student_id: string
+          transaction_id: string | null
+          updated_at: string | null
+          year: number
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          due_date: string
+          id?: string
+          month: string
+          payment_date?: string | null
+          status?: string | null
+          student_id: string
+          transaction_id?: string | null
+          updated_at?: string | null
+          year: number
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          due_date?: string
+          id?: string
+          month?: string
+          payment_date?: string | null
+          status?: string | null
+          student_id?: string
+          transaction_id?: string | null
+          updated_at?: string | null
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fees_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      students: {
+        Row: {
+          class_name: string
+          created_at: string | null
+          full_name: string
+          id: string
+          parent_email: string | null
+          parent_phone: string
+          password: string
+          student_id: string
+          updated_at: string | null
+          year_joined: number
+        }
+        Insert: {
+          class_name: string
+          created_at?: string | null
+          full_name: string
+          id?: string
+          parent_email?: string | null
+          parent_phone: string
+          password: string
+          student_id: string
+          updated_at?: string | null
+          year_joined: number
+        }
+        Update: {
+          class_name?: string
+          created_at?: string | null
+          full_name?: string
+          id?: string
+          parent_email?: string | null
+          parent_phone?: string
+          password?: string
+          student_id?: string
+          updated_at?: string | null
+          year_joined?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
