@@ -48,14 +48,11 @@ export const ParentDashboard = ({ currentUser }: ParentDashboardProps = {}) => {
 
   const fetchStudentsData = async () => {
     try {
-      // If currentUser is provided, filter by specific student
-      let studentsQuery = supabase.from('students').select('*');
-      
-      if (currentUser?.id) {
-        studentsQuery = studentsQuery.eq('id', currentUser.id);
-      }
-      
-      const { data: studentsData, error: studentsError } = await studentsQuery
+      // Filter by current user - only show their children
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('*')
+        .eq('id', currentUser.id)
         .order('created_at', { ascending: false });
 
       if (studentsError) {
@@ -100,9 +97,9 @@ export const ParentDashboard = ({ currentUser }: ParentDashboardProps = {}) => {
         };
       });
 
-      // Transform fee history
+      // Transform fee history - only for current user's children
       const transformedHistory: PaymentHistory[] = (feesData || [])
-        .filter(fee => fee.status === 'paid')
+        .filter(fee => fee.status === 'paid' && fee.student_id === currentUser.id)
         .map(fee => ({
           month: fee.month,
           year: fee.year,
@@ -349,7 +346,7 @@ export const ParentDashboard = ({ currentUser }: ParentDashboardProps = {}) => {
         </TabsContent>
 
         <TabsContent value="fees" className="space-y-4">
-          <ParentFeeView />
+          <ParentFeeView currentUser={currentUser} />
         </TabsContent>
       </Tabs>
     </div>

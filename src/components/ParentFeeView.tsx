@@ -40,7 +40,11 @@ interface Student {
   student_id: string;
 }
 
-export const ParentFeeView = () => {
+interface ParentFeeViewProps {
+  currentUser?: { id: string; name: string; type: string } | null;
+}
+
+export const ParentFeeView = ({ currentUser }: ParentFeeViewProps = {}) => {
   const [schoolYears, setSchoolYears] = useState<SchoolYear[]>([]);
   const [schoolMonths, setSchoolMonths] = useState<SchoolMonth[]>([]);
   const [studentFees, setStudentFees] = useState<StudentFee[]>([]);
@@ -111,21 +115,23 @@ export const ParentFeeView = () => {
 
       if (monthsError) throw monthsError;
 
-      // Fetch students (for demo - in real app this would be filtered by parent)
+      // Fetch only current user's student data
       const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select('*')
+        .eq('id', currentUser?.id)
         .order('full_name');
 
       if (studentsError) throw studentsError;
 
-      // Fetch student fees with month details
+      // Fetch student fees with month details - only for current user
       const { data: feesData, error: feesError } = await supabase
         .from('student_fees')
         .select(`
           *,
           school_months (*)
         `)
+        .eq('student_id', currentUser?.id)
         .order('created_at', { ascending: false });
 
       if (feesError) throw feesError;
@@ -184,16 +190,16 @@ export const ParentFeeView = () => {
 
   const getTotalPendingAmount = () => {
     return studentFees
-      .filter(fee => fee.status === 'pending')
+      .filter(fee => fee.status === 'pending' && fee.student_id === currentUser?.id)
       .reduce((sum, fee) => sum + fee.amount, 0);
   };
 
   const getPaidFeesCount = () => {
-    return studentFees.filter(fee => fee.status === 'paid').length;
+    return studentFees.filter(fee => fee.status === 'paid' && fee.student_id === currentUser?.id).length;
   };
 
   const getPendingFeesCount = () => {
-    return studentFees.filter(fee => fee.status === 'pending').length;
+    return studentFees.filter(fee => fee.status === 'pending' && fee.student_id === currentUser?.id).length;
   };
 
   if (loading) {
