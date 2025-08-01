@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentCard, Student } from "./StudentCard";
 import { AddStudentForm } from "./AddStudentForm";
 import { EditStudentForm } from "./EditStudentForm";
+import { ViewStudentDetails } from "./ViewStudentDetails";
 import { FeeManagement } from "./FeeManagement";
 import { ReportsComponent } from "./ReportsComponent";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -17,6 +18,7 @@ export const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
+  const [showViewDetails, setShowViewDetails] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
@@ -90,7 +92,8 @@ export const AdminDashboard = () => {
   }, []);
 
   const handleViewStudent = (studentId: string) => {
-    console.log("View student:", studentId);
+    setSelectedStudentId(studentId);
+    setShowViewDetails(true);
   };
 
   const handleEditStudent = (studentId: string) => {
@@ -249,6 +252,13 @@ export const AdminDashboard = () => {
       <EditStudentForm
         open={showEditForm}
         onOpenChange={setShowEditForm}
+        onStudentUpdated={handleStudentAdded}
+        studentId={selectedStudentId}
+      />
+
+      <ViewStudentDetails
+        open={showViewDetails}
+        onOpenChange={setShowViewDetails}
         onStudentUpdated={handleStudentAdded}
         studentId={selectedStudentId}
       />
