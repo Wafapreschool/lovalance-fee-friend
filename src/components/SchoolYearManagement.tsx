@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar, Plus, Users, DollarSign, Edit, Trash2 } from "lucide-react";
+import { Calendar, Plus, Users, DollarSign, Edit, Trash2, Eye } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -34,10 +34,23 @@ interface Student {
   student_id: string;
 }
 
+interface StudentFee {
+  id: string;
+  student_id: string;
+  amount: number;
+  status: string;
+  student: {
+    full_name: string;
+    student_id: string;
+    class_name: string;
+  };
+}
+
 export const SchoolYearManagement = () => {
   const [schoolYears, setSchoolYears] = useState<SchoolYear[]>([]);
   const [schoolMonths, setSchoolMonths] = useState<SchoolMonth[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [monthStudents, setMonthStudents] = useState<StudentFee[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -46,6 +59,7 @@ export const SchoolYearManagement = () => {
   const [showYearDialog, setShowYearDialog] = useState(false);
   const [showMonthDialog, setShowMonthDialog] = useState(false);
   const [showStudentDialog, setShowStudentDialog] = useState(false);
+  const [showViewStudentsDialog, setShowViewStudentsDialog] = useState(false);
   const [selectedYearId, setSelectedYearId] = useState<string>("");
   const [selectedMonthId, setSelectedMonthId] = useState<string>("");
   const [editingYear, setEditingYear] = useState<SchoolYear | null>(null);
@@ -240,6 +254,64 @@ export const SchoolYearManagement = () => {
     } catch (error) {
       console.error('Error deleting month:', error);
       toast.error("Failed to delete month");
+    }
+  };
+
+  const fetchMonthStudents = async (monthId: string) => {
+    try {
+      const { data: studentFees, error } = await supabase
+        .from('student_fees')
+        .select(`
+          id,
+          student_id,
+          amount,
+          status,
+          students!inner (
+            full_name,
+            student_id,
+            class_name
+          )
+        `)
+        .eq('school_month_id', monthId);
+
+      if (error) throw error;
+
+      const transformedData: StudentFee[] = (studentFees || []).map(fee => ({
+        id: fee.id,
+        student_id: fee.student_id,
+        amount: fee.amount,
+        status: fee.status,
+        student: {
+          full_name: fee.students.full_name,
+          student_id: fee.students.student_id,
+          class_name: fee.students.class_name
+        }
+      }));
+
+      setMonthStudents(transformedData);
+    } catch (error) {
+      console.error('Error fetching month students:', error);
+      toast.error("Failed to load students for this month");
+    }
+  };
+
+  const removeStudentFromMonth = async (studentFeeId: string) => {
+    try {
+      const { error } = await supabase
+        .from('student_fees')
+        .delete()
+        .eq('id', studentFeeId);
+
+      if (error) throw error;
+
+      toast.success("Student removed from month successfully");
+      // Refresh the month students list
+      if (selectedMonthId) {
+        fetchMonthStudents(selectedMonthId);
+      }
+    } catch (error) {
+      console.error('Error removing student from month:', error);
+      toast.error("Failed to remove student from month");
     }
   };
 
@@ -493,6 +565,17 @@ export const SchoolYearManagement = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
+                                  setSelectedMonthId(month.id);
+                                  fetchMonthStudents(month.id);
+                                  setShowViewStudentsDialog(true);
+                                }}
+                              >
+                                <Eye className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
                                   setEditingMonth(month);
                                   setMonthForm({
                                     month_name: month.month_name,
@@ -636,6 +719,76 @@ export const SchoolYearManagement = () => {
           </Button>
         </div>
       )}
+
+      {/* View Students Dialog */}
+      <Dialog open={showViewStudentsDialog} onOpenChange={setShowViewStudentsDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Students Registered for This Month</DialogTitle>
+            <DialogDescription>View and manage students assigned to this month</DialogDescription>
+          </DialogHeader>
+          
+          <div className="overflow-y-auto">
+            {monthStudents.length > 0 ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {monthStudents.map((studentFee) => (
+                    <Card key={studentFee.id} className="p-4">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-2">
+                          <h4 className="font-medium">{studentFee.student.full_name}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            ID: {studentFee.student.student_id} | Class: {studentFee.student.class_name}
+                          </p>
+                          <p className="text-sm">
+                            Amount: <span className="font-medium">MVR {studentFee.amount}</span>
+                          </p>
+                          <Badge variant={studentFee.status === 'paid' ? 'default' : 'secondary'}>
+                            {studentFee.status}
+                          </Badge>
+                        </div>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="outline" size="sm">
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Remove
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove Student</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to remove {studentFee.student.full_name} from this month? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => removeStudentFromMonth(studentFee.id)}>
+                                Remove Student
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No students registered for this month yet</p>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setShowViewStudentsDialog(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
