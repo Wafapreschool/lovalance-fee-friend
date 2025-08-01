@@ -19,13 +19,16 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded }: AddStuden
     class_name: "",
     year_joined: new Date().getFullYear(),
     parent_phone: "",
-    parent_email: "",
+    student_id: "",
     password: ""
   });
   const [loading, setLoading] = useState(false);
 
-  const generateStudentId = () => {
-    return `STU${Date.now().toString().slice(-6)}`;
+  const generateStudentId = (fullName: string) => {
+    const names = fullName.trim().split(' ');
+    const secondName = names.length > 1 ? names[1] : names[0];
+    const timestamp = Date.now().toString().slice(-4);
+    return `${secondName.toLowerCase()}${timestamp}`;
   };
 
   const generatePassword = () => {
@@ -43,7 +46,7 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded }: AddStuden
     setLoading(true);
     
     try {
-      const studentId = generateStudentId();
+      const studentId = formData.student_id || generateStudentId(formData.full_name);
       const password = formData.password || generatePassword();
 
       const { error } = await supabase
@@ -54,7 +57,6 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded }: AddStuden
           class_name: formData.class_name,
           year_joined: formData.year_joined,
           parent_phone: formData.parent_phone,
-          parent_email: formData.parent_email,
           password: password
         }]);
 
@@ -70,7 +72,7 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded }: AddStuden
         class_name: "",
         year_joined: new Date().getFullYear(),
         parent_phone: "",
-        parent_email: "",
+        student_id: "",
         password: ""
       });
       onStudentAdded();
@@ -99,9 +101,27 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded }: AddStuden
             <Input
               id="full_name"
               value={formData.full_name}
-              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+              onChange={(e) => {
+                const newName = e.target.value;
+                setFormData({ 
+                  ...formData, 
+                  full_name: newName,
+                  student_id: newName ? generateStudentId(newName) : ""
+                });
+              }}
               placeholder="Enter student's full name"
               required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="student_id">Student ID</Label>
+            <Input
+              id="student_id"
+              value={formData.student_id}
+              onChange={(e) => setFormData({ ...formData, student_id: e.target.value })}
+              placeholder="Auto-generated from name"
+              readOnly
             />
           </div>
 
@@ -143,16 +163,6 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded }: AddStuden
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="parent_email">Parent Email</Label>
-            <Input
-              id="parent_email"
-              type="email"
-              value={formData.parent_email}
-              onChange={(e) => setFormData({ ...formData, parent_email: e.target.value })}
-              placeholder="Parent's email address"
-            />
-          </div>
 
           <div className="space-y-2">
             <Label htmlFor="password">Password (optional)</Label>

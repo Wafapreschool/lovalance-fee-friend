@@ -37,9 +37,7 @@ export const AdminDashboard = () => {
 
       const { data: feesData, error: feesError } = await supabase
         .from('fees')
-        .select('*')
-        .eq('year', 2024)
-        .eq('month', 'January');
+        .select('*');
 
       if (feesError) {
         console.error('Error fetching fees:', feesError);
@@ -49,18 +47,25 @@ export const AdminDashboard = () => {
 
       // Transform data to match Student interface
       const transformedStudents: Student[] = (studentsData || []).map(student => {
-        const studentFee = feesData?.find(fee => fee.student_id === student.id);
+        const currentMonth = new Date().toLocaleString('default', { month: 'long' });
+        const currentYear = new Date().getFullYear();
+        const studentFee = feesData?.find(fee => 
+          fee.student_id === student.id && 
+          fee.month === currentMonth && 
+          fee.year === currentYear
+        );
+        
         return {
           id: student.id,
           name: student.full_name,
           class: student.class_name,
           yearJoined: student.year_joined,
           currentFee: {
-            month: "January",
-            year: 2024,
+            month: currentMonth,
+            year: currentYear,
             amount: studentFee?.amount || 3500,
             status: (studentFee?.status as "pending" | "paid" | "overdue") || "pending",
-            dueDate: studentFee?.due_date || "2024-01-15"
+            dueDate: studentFee?.due_date || new Date(currentYear, new Date().getMonth(), 15).toISOString().split('T')[0]
           }
         };
       });

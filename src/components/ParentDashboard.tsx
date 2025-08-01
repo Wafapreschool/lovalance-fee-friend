@@ -1,63 +1,108 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { StudentCard, Student } from "./StudentCard";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { CreditCard, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
-// Mock data for a parent's children
-const mockStudentData: Student[] = [
-  {
-    id: "1",
-    name: "Ahmed Ali",
-    class: "KG1", 
-    yearJoined: 2023,
-    currentFee: {
-      month: "January",
-      year: 2024,
-      amount: 3500,
-      status: "pending",
-      dueDate: "2024-01-15"
-    }
-  },
-  {
-    id: "2",
-    name: "Aisha Ali",
-    class: "KG2",
-    yearJoined: 2022,
-    currentFee: {
-      month: "January", 
-      year: 2024,
-      amount: 3500,
-      status: "paid",
-      dueDate: "2024-01-15"
-    }
-  }
-];
-
-// Mock payment history
-const mockPaymentHistory = [
-  { month: "December", year: 2023, amount: 3500, status: "paid", paidDate: "2023-12-10", transactionId: "TXN001" },
-  { month: "November", year: 2023, amount: 3500, status: "paid", paidDate: "2023-11-08", transactionId: "TXN002" },
-  { month: "October", year: 2023, amount: 3500, status: "paid", paidDate: "2023-10-12", transactionId: "TXN003" },
-];
+interface PaymentHistory {
+  month: string;
+  year: number;
+  amount: number;
+  status: string;
+  paidDate?: string;
+  transactionId?: string;
+}
 
 export const ParentDashboard = () => {
-  const [students] = useState<Student[]>(mockStudentData);
-  const { toast } = useToast();
+  const [students, setStudents] = useState<Student[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const totalDue = students
     .filter(s => s.currentFee.status === 'pending')
     .reduce((sum, s) => sum + s.currentFee.amount, 0);
 
+  const fetchStudentsData = async () => {
+    try {
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (studentsError) {
+        console.error('Error fetching students:', studentsError);
+        toast.error("Failed to load students");
+        return;
+      }
+
+      const { data: feesData, error: feesError } = await supabase
+        .from('fees')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (feesError) {
+        console.error('Error fetching fees:', feesError);
+        toast.error("Failed to load fees");
+        return;
+      }
+
+      // Transform data to match Student interface
+      const transformedStudents: Student[] = (studentsData || []).map(student => {
+        const currentMonth = new Date().toLocaleString('default', { month: 'long' });
+        const currentYear = new Date().getFullYear();
+        const studentFee = feesData?.find(fee => 
+          fee.student_id === student.id && 
+          fee.month === currentMonth && 
+          fee.year === currentYear
+        );
+        
+        return {
+          id: student.id,
+          name: student.full_name,
+          class: student.class_name,
+          yearJoined: student.year_joined,
+          currentFee: {
+            month: currentMonth,
+            year: currentYear,
+            amount: studentFee?.amount || 3500,
+            status: (studentFee?.status as "pending" | "paid" | "overdue") || "pending",
+            dueDate: studentFee?.due_date || new Date(currentYear, new Date().getMonth(), 15).toISOString().split('T')[0]
+          }
+        };
+      });
+
+      // Transform fee history
+      const transformedHistory: PaymentHistory[] = (feesData || [])
+        .filter(fee => fee.status === 'paid')
+        .map(fee => ({
+          month: fee.month,
+          year: fee.year,
+          amount: fee.amount,
+          status: fee.status,
+          paidDate: fee.payment_date ? new Date(fee.payment_date).toLocaleDateString() : undefined,
+          transactionId: fee.transaction_id
+        }));
+
+      setStudents(transformedStudents);
+      setPaymentHistory(transformedHistory);
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error("An error occurred while loading data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStudentsData();
+  }, []);
+
   const handlePayFee = (studentId: string) => {
     const student = students.find(s => s.id === studentId);
     if (student) {
-      toast({
-        title: "Payment Processing",
-        description: `Redirecting to payment gateway for ${student.name}'s fee...`,
-      });
-      // Here you would integrate with BML payment gateway
+      toast.success(`Redirecting to payment gateway for ${student.name}'s fee...`);
       console.log("Initiating payment for student:", studentId);
     }
   };
@@ -65,10 +110,7 @@ export const ParentDashboard = () => {
   const handleViewHistory = (studentId: string) => {
     const student = students.find(s => s.id === studentId);
     if (student) {
-      toast({
-        title: "Payment History",
-        description: `Viewing payment history for ${student.name}`,
-      });
+      toast.success(`Viewing payment history for ${student.name}`);
       console.log("View history for student:", studentId);
     }
   };
@@ -135,17 +177,33 @@ export const ParentDashboard = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {students.map((student) => (
-            <StudentCard
-              key={student.id}
-              student={student}
-              onPayFee={handlePayFee}
-              onViewDetails={handleViewHistory}
-              isParentView={true}
-            />
-          ))}
-        </div>
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[1, 2].map((i) => (
+              <div key={i} className="animate-pulse">
+                <div className="bg-muted h-48 rounded-lg"></div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {students.length > 0 ? (
+              students.map((student) => (
+                <StudentCard
+                  key={student.id}
+                  student={student}
+                  onPayFee={handlePayFee}
+                  onViewDetails={handleViewHistory}
+                  isParentView={true}
+                />
+              ))
+            ) : (
+              <div className="col-span-full text-center py-8">
+                <p className="text-muted-foreground">No students found</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Payment History */}
@@ -159,23 +217,31 @@ export const ParentDashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {mockPaymentHistory.map((payment, index) => (
-              <div key={index} className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-success/10">
-                    <CheckCircle className="h-4 w-4 text-success" />
+            {paymentHistory.length > 0 ? (
+              paymentHistory.slice(0, 5).map((payment, index) => (
+                <div key={index} className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-success/10">
+                      <CheckCircle className="h-4 w-4 text-success" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{payment.month} {payment.year}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {payment.paidDate ? `Paid on ${payment.paidDate}` : 'Payment date not available'}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">{payment.month} {payment.year}</p>
-                    <p className="text-sm text-muted-foreground">Paid on {payment.paidDate}</p>
+                  <div className="text-right">
+                    <p className="font-semibold">MVR {payment.amount}</p>
+                    <p className="text-xs text-muted-foreground">{payment.transactionId || 'No transaction ID'}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold">MVR {payment.amount}</p>
-                  <p className="text-xs text-muted-foreground">{payment.transactionId}</p>
-                </div>
+              ))
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No payment history found</p>
               </div>
-            ))}
+            )}
           </div>
         </CardContent>
       </Card>
