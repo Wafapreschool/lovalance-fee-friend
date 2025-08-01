@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentCard, Student } from "./StudentCard";
 import { AddStudentForm } from "./AddStudentForm";
+import { FeeManagement } from "./FeeManagement";
+import { ReportsComponent } from "./ReportsComponent";
 import { Users, CreditCard, TrendingUp, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -22,31 +24,46 @@ export const AdminDashboard = () => {
 
   const fetchStudents = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: studentsData, error: studentsError } = await supabase
         .from('students')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching students:', error);
+      if (studentsError) {
+        console.error('Error fetching students:', studentsError);
         toast.error("Failed to load students");
         return;
       }
 
+      const { data: feesData, error: feesError } = await supabase
+        .from('fees')
+        .select('*')
+        .eq('year', 2024)
+        .eq('month', 'January');
+
+      if (feesError) {
+        console.error('Error fetching fees:', feesError);
+        toast.error("Failed to load fees");
+        return;
+      }
+
       // Transform data to match Student interface
-      const transformedStudents: Student[] = (data || []).map(student => ({
-        id: student.id,
-        name: student.full_name,
-        class: student.class_name,
-        yearJoined: student.year_joined,
-        currentFee: {
-          month: "January",
-          year: 2024,
-          amount: 3500,
-          status: "pending",
-          dueDate: "2024-01-15"
-        }
-      }));
+      const transformedStudents: Student[] = (studentsData || []).map(student => {
+        const studentFee = feesData?.find(fee => fee.student_id === student.id);
+        return {
+          id: student.id,
+          name: student.full_name,
+          class: student.class_name,
+          yearJoined: student.year_joined,
+          currentFee: {
+            month: "January",
+            year: 2024,
+            amount: studentFee?.amount || 3500,
+            status: (studentFee?.status as "pending" | "paid" | "overdue") || "pending",
+            dueDate: studentFee?.due_date || "2024-01-15"
+          }
+        };
+      });
 
       setStudents(transformedStudents);
     } catch (error) {
@@ -120,19 +137,21 @@ export const AdminDashboard = () => {
 
       {/* Management Tabs */}
       <Tabs defaultValue="students" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="students">Students</TabsTrigger>
-          <TabsTrigger value="fees">Fee Management</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 h-auto">
+          <TabsTrigger value="students" className="text-xs sm:text-sm py-3">Students</TabsTrigger>
+          <TabsTrigger value="fees" className="text-xs sm:text-sm py-3">Fee Mgmt</TabsTrigger>
+          <TabsTrigger value="reports" className="text-xs sm:text-sm py-3">Reports</TabsTrigger>
         </TabsList>
 
         <TabsContent value="students" className="space-y-4">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center">
             <div>
-              <h2 className="text-2xl font-bold">Student Management</h2>
-              <p className="text-muted-foreground">Manage student registrations and information</p>
+              <h2 className="text-xl sm:text-2xl font-bold">Student Management</h2>
+              <p className="text-sm text-muted-foreground">Manage student registrations and information</p>
             </div>
-            <Button variant="gradient" onClick={() => setShowAddForm(true)}>Add New Student</Button>
+            <Button variant="gradient" onClick={() => setShowAddForm(true)} className="w-full sm:w-auto">
+              Add New Student
+            </Button>
           </div>
 
           {loading ? (
@@ -144,7 +163,7 @@ export const AdminDashboard = () => {
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {students.length > 0 ? (
                 students.map((student) => (
                   <StudentCard
@@ -164,33 +183,11 @@ export const AdminDashboard = () => {
         </TabsContent>
 
         <TabsContent value="fees" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Fee Management</CardTitle>
-              <CardDescription>Set monthly fees and track payments</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Fee management interface coming soon...</p>
-                <Button variant="outline" className="mt-4">Set Monthly Fees</Button>
-              </div>
-            </CardContent>
-          </Card>
+          <FeeManagement onRefresh={fetchStudents} />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Financial Reports</CardTitle>
-              <CardDescription>View detailed payment reports and analytics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Reports dashboard coming soon...</p>
-                <Button variant="outline" className="mt-4">Generate Report</Button>
-              </div>
-            </CardContent>
-          </Card>
+          <ReportsComponent />
         </TabsContent>
       </Tabs>
 

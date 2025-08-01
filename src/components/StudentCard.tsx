@@ -12,7 +12,7 @@ export interface Student {
     month: string;
     year: number;
     amount: number;
-    status: 'pending' | 'paid';
+    status: 'pending' | 'paid' | 'overdue';
     dueDate: string;
   };
 }
@@ -27,6 +27,7 @@ interface StudentCardProps {
 export const StudentCard = ({ student, onPayFee, onViewDetails, isParentView = false }: StudentCardProps) => {
   const { currentFee } = student;
   const isPaid = currentFee.status === 'paid';
+  const isOverdue = currentFee.status === 'overdue';
 
   return (
     <Card className="group transition-all duration-300 hover:shadow-card hover:-translate-y-1">
@@ -45,8 +46,8 @@ export const StudentCard = ({ student, onPayFee, onViewDetails, isParentView = f
             </div>
           </div>
           <Badge 
-            variant={isPaid ? "default" : "destructive"}
-            className={isPaid ? "bg-success hover:bg-success/80" : ""}
+            variant={isPaid ? "default" : isOverdue ? "destructive" : "secondary"}
+            className={isPaid ? "bg-success hover:bg-success/80" : isOverdue ? "" : "bg-warning text-warning-foreground"}
           >
             {isPaid ? (
               <CheckCircle className="h-3 w-3 mr-1" />
@@ -70,7 +71,7 @@ export const StudentCard = ({ student, onPayFee, onViewDetails, isParentView = f
           </div>
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Due Date:</span>
-            <span className={`font-medium ${!isPaid ? 'text-destructive' : ''}`}>
+            <span className={`font-medium ${!isPaid ? (isOverdue ? 'text-destructive' : 'text-warning') : ''}`}>
               {currentFee.dueDate}
             </span>
           </div>
@@ -81,7 +82,7 @@ export const StudentCard = ({ student, onPayFee, onViewDetails, isParentView = f
             {!isPaid && (
               <Button 
                 onClick={() => onPayFee?.(student.id)}
-                variant="gradient"
+                variant={isOverdue ? "destructive" : "gradient"}
                 className="flex-1"
               >
                 <CreditCard className="h-4 w-4 mr-2" />
