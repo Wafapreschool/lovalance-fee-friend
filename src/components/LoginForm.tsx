@@ -43,12 +43,11 @@ export const LoginForm = ({ userType, onLogin, onBack }: LoginFormProps) => {
         }
       } else {
         // Parent login using student database
-        const { data: student, error } = await supabase
+        const { data: students, error } = await supabase
           .from('students')
           .select('*')
           .eq('student_id', studentId)
-          .eq('password', password)
-          .maybeSingle();
+          .eq('password', password);
 
         if (error) {
           console.error('Database error:', error);
@@ -57,13 +56,15 @@ export const LoginForm = ({ userType, onLogin, onBack }: LoginFormProps) => {
             description: "Database connection failed. Please try again.",
             variant: "destructive",
           });
-        } else if (!student) {
+        } else if (!students || students.length === 0) {
           toast({
             title: "Login Failed",
             description: "Invalid student ID or password. Please check your credentials.",
             variant: "destructive",
           });
         } else {
+          // Get the first student from the array
+          const student = students[0];
           // Create a session for the parent using student info
           onLogin({ 
             id: student.id, 
