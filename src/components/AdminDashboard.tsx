@@ -7,6 +7,7 @@ import { AddStudentForm } from "./AddStudentForm";
 import { EditStudentForm } from "./EditStudentForm";
 import { ViewStudentDetails } from "./ViewStudentDetails";
 import { FeeManagement } from "./FeeManagement";
+import { SchoolYearManagement } from "./SchoolYearManagement";
 import { ReportsComponent } from "./ReportsComponent";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Users, CreditCard, TrendingUp, AlertCircle } from "lucide-react";
@@ -187,8 +188,9 @@ export const AdminDashboard = () => {
 
       {/* Management Tabs */}
       <Tabs defaultValue="students" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 h-auto">
+        <TabsList className="grid w-full grid-cols-4 h-auto">
           <TabsTrigger value="students" className="text-xs sm:text-sm py-3">Students</TabsTrigger>
+          <TabsTrigger value="school-years" className="text-xs sm:text-sm py-3">School Years</TabsTrigger>
           <TabsTrigger value="fees" className="text-xs sm:text-sm py-3">Fee Mgmt</TabsTrigger>
           <TabsTrigger value="reports" className="text-xs sm:text-sm py-3">Reports</TabsTrigger>
         </TabsList>
@@ -232,6 +234,10 @@ export const AdminDashboard = () => {
               )}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="school-years" className="space-y-4">
+          <SchoolYearManagement />
         </TabsContent>
 
         <TabsContent value="fees" className="space-y-4">

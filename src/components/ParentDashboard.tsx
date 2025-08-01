@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentCard, Student } from "./StudentCard";
+import { ParentFeeView } from "./ParentFeeView";
 import { toast } from "sonner";
-import { CreditCard, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { CreditCard, Clock, CheckCircle, AlertCircle, CalendarDays } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 interface PaymentHistory {
@@ -165,86 +167,103 @@ export const ParentDashboard = () => {
         </Card>
       </div>
 
-      {/* Student Cards */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">Your Children</h2>
-          {totalDue > 0 && (
-            <Button variant="gradient" size="lg">
-              <CreditCard className="h-4 w-4 mr-2" />
-              Pay All Due (MVR {totalDue.toLocaleString()})
-            </Button>
-          )}
-        </div>
+      {/* Tabs for Overview and Fee Management */}
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2 h-auto">
+          <TabsTrigger value="overview" className="text-sm py-3">Overview</TabsTrigger>
+          <TabsTrigger value="fees" className="text-sm py-3">
+            <CalendarDays className="h-4 w-4 mr-2" />
+            Fee Management
+          </TabsTrigger>
+        </TabsList>
 
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[1, 2].map((i) => (
-              <div key={i} className="animate-pulse">
-                <div className="bg-muted h-48 rounded-lg"></div>
+        <TabsContent value="overview" className="space-y-4">
+          {/* Student Cards */}
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold">Your Children</h2>
+              {totalDue > 0 && (
+                <Button variant="gradient" size="lg">
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Pay All Due (MVR {totalDue.toLocaleString()})
+                </Button>
+              )}
+            </div>
+
+            {loading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {[1, 2].map((i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="bg-muted h-48 rounded-lg"></div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {students.length > 0 ? (
-              students.map((student) => (
-                <StudentCard
-                  key={student.id}
-                  student={student}
-                  onPayFee={handlePayFee}
-                  onViewDetails={handleViewHistory}
-                  isParentView={true}
-                />
-              ))
             ) : (
-              <div className="col-span-full text-center py-8">
-                <p className="text-muted-foreground">No students found</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {students.length > 0 ? (
+                  students.map((student) => (
+                    <StudentCard
+                      key={student.id}
+                      student={student}
+                      onPayFee={handlePayFee}
+                      onViewDetails={handleViewHistory}
+                      isParentView={true}
+                    />
+                  ))
+                ) : (
+                  <div className="col-span-full text-center py-8">
+                    <p className="text-muted-foreground">No students found</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
 
-      {/* Payment History */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Recent Payment History
-          </CardTitle>
-          <CardDescription>Your last few payments across all children</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {paymentHistory.length > 0 ? (
-              paymentHistory.slice(0, 5).map((payment, index) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-full bg-success/10">
-                      <CheckCircle className="h-4 w-4 text-success" />
+          {/* Payment History */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Recent Payment History
+              </CardTitle>
+              <CardDescription>Your last few payments across all children</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {paymentHistory.length > 0 ? (
+                  paymentHistory.slice(0, 5).map((payment, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-full bg-success/10">
+                          <CheckCircle className="h-4 w-4 text-success" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{payment.month} {payment.year}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {payment.paidDate ? `Paid on ${payment.paidDate}` : 'Payment date not available'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold">MVR {payment.amount}</p>
+                        <p className="text-xs text-muted-foreground">{payment.transactionId || 'No transaction ID'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-medium">{payment.month} {payment.year}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {payment.paidDate ? `Paid on ${payment.paidDate}` : 'Payment date not available'}
-                      </p>
-                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No payment history found</p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-semibold">MVR {payment.amount}</p>
-                    <p className="text-xs text-muted-foreground">{payment.transactionId || 'No transaction ID'}</p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No payment history found</p>
+                )}
               </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="fees" className="space-y-4">
+          <ParentFeeView />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

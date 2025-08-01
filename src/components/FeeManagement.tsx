@@ -14,7 +14,7 @@ interface FeeRecord {
   month: string;
   year: number;
   amount: number;
-  status: string;
+  status: 'pending' | 'paid' | 'overdue';
   due_date: string;
   payment_date?: string;
   transaction_id?: string;
@@ -31,13 +31,18 @@ export const FeeManagement = ({ onRefresh }: FeeManagementProps) => {
   const fetchFees = async () => {
     try {
       const { data, error } = await supabase
-        .from('fees')
+        .from('student_fees')
         .select(`
           *,
           students!inner(
             student_id,
             full_name,
             class_name
+          ),
+          school_months!inner(
+            month_name,
+            due_date,
+            school_years!inner(year)
           )
         `)
         .order('created_at', { ascending: false });
@@ -53,11 +58,11 @@ export const FeeManagement = ({ onRefresh }: FeeManagementProps) => {
         student_name: fee.students.full_name,
         student_id: fee.students.student_id,
         class_name: fee.students.class_name,
-        month: fee.month,
-        year: fee.year,
+        month: fee.school_months.month_name,
+        year: fee.school_months.school_years.year,
         amount: fee.amount,
-        status: fee.status || 'pending',
-        due_date: fee.due_date,
+        status: (fee.status as 'pending' | 'paid' | 'overdue') || 'pending',
+        due_date: fee.school_months.due_date,
         payment_date: fee.payment_date,
         transaction_id: fee.transaction_id
       }));
@@ -91,7 +96,7 @@ export const FeeManagement = ({ onRefresh }: FeeManagementProps) => {
   const markAsPaid = async (feeId: string) => {
     try {
       const { error } = await supabase
-        .from('fees')
+        .from('student_fees')
         .update({
           status: 'paid',
           payment_date: new Date().toISOString(),
