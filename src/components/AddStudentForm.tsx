@@ -165,15 +165,15 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded }: AddStuden
 
 
           <div className="space-y-2">
-            <Label htmlFor="password">Password (optional)</Label>
+            <Label htmlFor="password">Password</Label>
             <Input
               id="password"
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              placeholder="Leave empty for auto-generated password"
+              placeholder="Auto-generated if left empty"
             />
             <p className="text-xs text-muted-foreground">
-              If left empty, a password will be automatically generated
+              Password will be automatically generated if left empty
             </p>
           </div>
 

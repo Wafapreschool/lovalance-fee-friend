@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentCard, Student } from "./StudentCard";
 import { AddStudentForm } from "./AddStudentForm";
+import { EditStudentForm } from "./EditStudentForm";
 import { FeeManagement } from "./FeeManagement";
 import { ReportsComponent } from "./ReportsComponent";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Users, CreditCard, TrendingUp, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -14,6 +16,10 @@ export const AdminDashboard = () => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
 
   const totalStudents = students.length;
   const paidFees = students.filter(s => s.currentFee.status === 'paid').length;
@@ -85,6 +91,42 @@ export const AdminDashboard = () => {
 
   const handleViewStudent = (studentId: string) => {
     console.log("View student:", studentId);
+  };
+
+  const handleEditStudent = (studentId: string) => {
+    setSelectedStudentId(studentId);
+    setShowEditForm(true);
+  };
+
+  const handleDeleteStudent = (studentId: string) => {
+    setStudentToDelete(studentId);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteStudent = async () => {
+    if (!studentToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from('students')
+        .delete()
+        .eq('id', studentToDelete);
+
+      if (error) {
+        console.error('Error deleting student:', error);
+        toast.error("Failed to delete student");
+        return;
+      }
+
+      toast.success("Student deleted successfully");
+      fetchStudents();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error("An error occurred while deleting student");
+    } finally {
+      setShowDeleteDialog(false);
+      setStudentToDelete(null);
+    }
   };
 
   const handleStudentAdded = () => {
@@ -175,6 +217,8 @@ export const AdminDashboard = () => {
                     key={student.id}
                     student={student}
                     onViewDetails={handleViewStudent}
+                    onEditStudent={handleEditStudent}
+                    onDeleteStudent={handleDeleteStudent}
                     isParentView={false}
                   />
                 ))
@@ -201,6 +245,30 @@ export const AdminDashboard = () => {
         onOpenChange={setShowAddForm}
         onStudentAdded={handleStudentAdded}
       />
+
+      <EditStudentForm
+        open={showEditForm}
+        onOpenChange={setShowEditForm}
+        onStudentUpdated={handleStudentAdded}
+        studentId={selectedStudentId}
+      />
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Student</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this student? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteStudent} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

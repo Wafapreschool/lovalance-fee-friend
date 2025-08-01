@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { User, Calendar, CreditCard, CheckCircle } from "lucide-react";
+import { User, Calendar, CreditCard, CheckCircle, Edit, Trash2 } from "lucide-react";
 
 export interface Student {
   id: string;
@@ -21,10 +21,12 @@ interface StudentCardProps {
   student: Student;
   onPayFee?: (studentId: string) => void;
   onViewDetails?: (studentId: string) => void;
+  onEditStudent?: (studentId: string) => void;
+  onDeleteStudent?: (studentId: string) => void;
   isParentView?: boolean;
 }
 
-export const StudentCard = ({ student, onPayFee, onViewDetails, isParentView = false }: StudentCardProps) => {
+export const StudentCard = ({ student, onPayFee, onViewDetails, onEditStudent, onDeleteStudent, isParentView = false }: StudentCardProps) => {
   const { currentFee } = student;
   const isPaid = currentFee.status === 'paid';
   const isOverdue = currentFee.status === 'overdue';
@@ -101,13 +103,34 @@ export const StudentCard = ({ student, onPayFee, onViewDetails, isParentView = f
         )}
 
         {!isParentView && (
-          <Button 
-            onClick={() => onViewDetails?.(student.id)}
-            variant="outline"
-            className="w-full"
-          >
-            Manage Student
-          </Button>
+          <div className="flex gap-2 pt-2">
+            <Button 
+              onClick={() => onEditStudent?.(student.id)}
+              variant="outline"
+              size="sm"
+              className="flex-1"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+            <Button 
+              onClick={() => onDeleteStudent?.(student.id)}
+              variant="outline"
+              size="sm"
+              className="flex-1 text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </Button>
+            <Button 
+              onClick={() => onViewDetails?.(student.id)}
+              variant="default"
+              size="sm"
+              className="flex-1"
+            >
+              View Details
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>
