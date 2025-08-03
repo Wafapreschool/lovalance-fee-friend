@@ -189,29 +189,19 @@ export const AdminDashboard = () => {
       </div>
 
       {/* Management Tabs */}
-      <Tabs defaultValue="year-students" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 h-auto">
-          <TabsTrigger value="year-students" className="text-xs sm:text-sm py-3">Students by Year</TabsTrigger>
-          <TabsTrigger value="monthly-fees" className="text-xs sm:text-sm py-3">Monthly Fees</TabsTrigger>
-          <TabsTrigger value="school-years" className="text-xs sm:text-sm py-3">Year Management</TabsTrigger>
-          <TabsTrigger value="fees" className="text-xs sm:text-sm py-3">Fee System</TabsTrigger>
+      <Tabs defaultValue="students" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-3 h-auto">
+          <TabsTrigger value="students" className="text-xs sm:text-sm py-3">Students</TabsTrigger>
+          <TabsTrigger value="fees" className="text-xs sm:text-sm py-3">Fees</TabsTrigger>
           <TabsTrigger value="reports" className="text-xs sm:text-sm py-3">Reports</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="year-students" className="space-y-4">
+        <TabsContent value="students" className="space-y-4">
           <YearBasedStudentManagement />
         </TabsContent>
 
-        <TabsContent value="monthly-fees" className="space-y-4">
-          <MonthlyFeeManagement />
-        </TabsContent>
-
-        <TabsContent value="school-years" className="space-y-4">
-          <SchoolYearManagement />
-        </TabsContent>
-
         <TabsContent value="fees" className="space-y-4">
-          <FeeManagement onRefresh={fetchStudents} />
+          <MonthlyFeeManagement />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
