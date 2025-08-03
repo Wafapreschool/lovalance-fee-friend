@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Header } from "@/components/Header";
 import { RoleCard } from "@/components/RoleCard";
-import { LoginForm } from "@/components/LoginForm";
+import { AdminLogin } from "@/components/AdminLogin";
+import { ParentLogin } from "@/components/ParentLogin";
 import { AdminDashboard } from "@/components/AdminDashboard";
 import { ParentDashboard } from "@/components/ParentDashboard";
 import { Shield, Heart } from "lucide-react";
@@ -11,14 +12,14 @@ type UserData = {
   name: string;
   type: 'admin' | 'parent';
 };
-type AppState = 'welcome' | 'login' | 'dashboard';
+type AppState = 'welcome' | 'admin-login' | 'parent-login' | 'dashboard';
 const Index = () => {
   const [appState, setAppState] = useState<AppState>('welcome');
   const [selectedRole, setSelectedRole] = useState<'admin' | 'parent' | null>(null);
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
   const handleRoleSelect = (role: 'admin' | 'parent') => {
     setSelectedRole(role);
-    setAppState('login');
+    setAppState(role === 'admin' ? 'admin-login' : 'parent-login');
   };
   const handleLogin = (userData: UserData) => {
     setCurrentUser(userData);
@@ -33,8 +34,12 @@ const Index = () => {
     setSelectedRole(null);
     setAppState('welcome');
   };
-  if (appState === 'login' && selectedRole) {
-    return <LoginForm userType={selectedRole} onLogin={handleLogin} onBack={handleBack} />;
+  if (appState === 'admin-login') {
+    return <AdminLogin onLogin={handleLogin} onBack={handleBack} />;
+  }
+
+  if (appState === 'parent-login') {
+    return <ParentLogin onLogin={handleLogin} onBack={handleBack} />;
   }
   if (appState === 'dashboard' && currentUser) {
     return <div className="min-h-screen bg-background">
