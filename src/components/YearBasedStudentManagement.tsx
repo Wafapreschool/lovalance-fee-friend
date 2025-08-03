@@ -47,6 +47,11 @@ export const YearBasedStudentManagement = () => {
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
   const [showAddYearDialog, setShowAddYearDialog] = useState(false);
   const [newYear, setNewYear] = useState<string>("");
+  const [showEditYearDialog, setShowEditYearDialog] = useState(false);
+  const [showDeleteYearDialog, setShowDeleteYearDialog] = useState(false);
+  const [yearToEdit, setYearToEdit] = useState<SchoolYear | null>(null);
+  const [yearToDelete, setYearToDelete] = useState<SchoolYear | null>(null);
+  const [editYearValue, setEditYearValue] = useState<string>("");
 
   const fetchSchoolYears = async () => {
     try {
@@ -204,6 +209,103 @@ export const YearBasedStudentManagement = () => {
     }
   };
 
+  const handleEditYear = (year: SchoolYear) => {
+    setYearToEdit(year);
+    setEditYearValue(year.year.toString());
+    setShowEditYearDialog(true);
+  };
+
+  const handleDeleteYear = (year: SchoolYear) => {
+    setYearToDelete(year);
+    setShowDeleteYearDialog(true);
+  };
+
+  const confirmEditYear = async () => {
+    if (!yearToEdit || !editYearValue || isNaN(parseInt(editYearValue))) {
+      toast.error("Please enter a valid year");
+      return;
+    }
+
+    const yearNumber = parseInt(editYearValue);
+    const currentYear = new Date().getFullYear();
+    
+    if (yearNumber < 2020 || yearNumber > currentYear + 10) {
+      toast.error("Please enter a year between 2020 and " + (currentYear + 10));
+      return;
+    }
+
+    try {
+      // Check if year already exists (excluding current year)
+      const { data: existingYear } = await supabase
+        .from('school_years')
+        .select('id')
+        .eq('year', yearNumber)
+        .neq('id', yearToEdit.id)
+        .maybeSingle();
+
+      if (existingYear) {
+        toast.error("This academic year already exists");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('school_years')
+        .update({ year: yearNumber })
+        .eq('id', yearToEdit.id);
+
+      if (error) {
+        console.error('Error updating year:', error);
+        toast.error("Failed to update academic year");
+        return;
+      }
+
+      toast.success(`Academic Year updated to ${yearNumber} successfully`);
+      setShowEditYearDialog(false);
+      setYearToEdit(null);
+      setEditYearValue("");
+      fetchSchoolYears();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error("An error occurred while updating academic year");
+    }
+  };
+
+  const confirmDeleteYear = async () => {
+    if (!yearToDelete) return;
+
+    try {
+      // Check if there are students in this year
+      const { data: studentsInYear } = await supabase
+        .from('students')
+        .select('id')
+        .eq('year_joined', yearToDelete.year);
+
+      if (studentsInYear && studentsInYear.length > 0) {
+        toast.error("Cannot delete year with existing students. Please remove all students first.");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('school_years')
+        .delete()
+        .eq('id', yearToDelete.id);
+
+      if (error) {
+        console.error('Error deleting year:', error);
+        toast.error("Failed to delete academic year");
+        return;
+      }
+
+      toast.success(`Academic Year ${yearToDelete.year} deleted successfully`);
+      setShowDeleteYearDialog(false);
+      setYearToDelete(null);
+      fetchSchoolYears();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error("An error occurred while deleting academic year");
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -237,15 +339,35 @@ export const YearBasedStudentManagement = () => {
         {schoolYears.map((year) => (
           <Card key={year.id} className="bg-gradient-card">
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-lg">Academic Year {year.year}</CardTitle>
-                {year.is_active && (
-                  <Badge variant="default" className="bg-success text-success-foreground">Active</Badge>
-                )}
+              <div className="flex justify-between items-start">
+                <div>
+                  <CardTitle className="text-lg">Academic Year {year.year}</CardTitle>
+                  <CardDescription>
+                    Students who joined in {year.year}
+                  </CardDescription>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-1">
+                    <Badge 
+                      variant="outline" 
+                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+                      onClick={() => handleEditYear(year)}
+                    >
+                      Edit
+                    </Badge>
+                    <Badge 
+                      variant="outline" 
+                      className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                      onClick={() => handleDeleteYear(year)}
+                    >
+                      Delete
+                    </Badge>
+                  </div>
+                  {year.is_active && (
+                    <Badge variant="default" className="bg-success text-success-foreground">Active</Badge>
+                  )}
+                </div>
               </div>
-              <CardDescription>
-                Students who joined in {year.year}
-              </CardDescription>
             </CardHeader>
             <CardContent>
               <Button 
@@ -407,6 +529,56 @@ export const YearBasedStudentManagement = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={showEditYearDialog} onOpenChange={setShowEditYearDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Academic Year</DialogTitle>
+            <DialogDescription>
+              Update the academic year value
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="editYear">Academic Year</Label>
+              <Input
+                id="editYear"
+                type="number"
+                placeholder="2025"
+                value={editYearValue}
+                onChange={(e) => setEditYearValue(e.target.value)}
+                min="2020"
+                max={new Date().getFullYear() + 10}
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowEditYearDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={confirmEditYear}>
+                Update Year
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={showDeleteYearDialog} onOpenChange={setShowDeleteYearDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Academic Year</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete Academic Year {yearToDelete?.year}? This action cannot be undone. You can only delete years that have no students enrolled.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteYear} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete Year
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
