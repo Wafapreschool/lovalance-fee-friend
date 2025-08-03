@@ -110,7 +110,7 @@ export const ReportsComponent = () => {
         .eq('school_months.school_year_id', selectedYear);
 
       // Add month filter if selected
-      if (selectedMonth) {
+      if (selectedMonth && selectedMonth !== "all") {
         query = query.eq('school_month_id', selectedMonth);
       }
 
@@ -269,7 +269,7 @@ export const ReportsComponent = () => {
                 <SelectValue placeholder="All months" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Months</SelectItem>
+                <SelectItem value="all">All Months</SelectItem>
                 {getMonthsForSelectedYear().map((month) => (
                   <SelectItem key={month.id} value={month.id}>
                     {month.month_name}
