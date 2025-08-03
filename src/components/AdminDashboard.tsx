@@ -190,7 +190,7 @@ export const AdminDashboard = () => {
       <Tabs defaultValue="students" className="space-y-6">
         <TabsList className="grid w-full grid-cols-4 h-auto">
           <TabsTrigger value="students" className="text-xs sm:text-sm py-3">Students</TabsTrigger>
-          <TabsTrigger value="school-years" className="text-xs sm:text-sm py-3">School Management</TabsTrigger>
+          <TabsTrigger value="school-years" className="text-xs sm:text-sm py-3">Fee Management</TabsTrigger>
           <TabsTrigger value="fees" className="text-xs sm:text-sm py-3">Professional Fee System</TabsTrigger>
           <TabsTrigger value="reports" className="text-xs sm:text-sm py-3">Reports</TabsTrigger>
         </TabsList>
