@@ -48,16 +48,14 @@ const Index = () => {
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-hero opacity-10" />
-        <div className="container mx-auto px-4 py-16 relative">
+        <div className="container mx-auto px-4 py-16 relative rounded">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="space-y-8">
               <div className="space-y-4">
                 <h1 className="text-4xl lg:text-6xl font-bold leading-tight">
-                  <span className="bg-gradient-hero bg-clip-text text-transparent">
-                    Little Stars
-                  </span>
+                  <span className="bg-gradient-hero bg-clip-text text-transparent text-xl font-extrabold text-justify">WAFA PRESCHOOL</span>
                   <br />
-                  <span className="text-foreground">Fee Management</span>
+                  <span className="text-foreground text-2xl">Fee Management</span>
                 </h1>
                 <p className="text-lg text-muted-foreground max-w-lg">
                   Streamlined fee collection for our preschool community. 
@@ -80,7 +78,7 @@ const Index = () => {
 
             <div className="relative">
               <div className="relative overflow-hidden rounded-2xl shadow-hover">
-                <img src={heroImage} alt="Little Stars Preschool" className="w-full h-[400px] lg:h-[500px] object-cover" />
+                
                 
               </div>
               <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-gradient-primary rounded-full opacity-20 blur-xl" />
@@ -93,44 +91,11 @@ const Index = () => {
       {/* Features Section */}
       <div className="container mx-auto px-4 py-16">
         <div className="text-center space-y-4 mb-12">
-          <h2 className="text-3xl font-bold">Built for Modern Preschools</h2>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Our fee management system simplifies the payment process for both parents and administrators,
-            ensuring transparency and efficiency in financial operations.
-          </p>
+          
+          
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
-              <Shield className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="text-xl font-semibold">Secure Payments</h3>
-            <p className="text-muted-foreground">
-              All transactions are processed through secure BML payment gateway with encryption.
-            </p>
-          </div>
-
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 mx-auto bg-secondary/10 rounded-full flex items-center justify-center">
-              <Heart className="h-8 w-8 text-secondary" />
-            </div>
-            <h3 className="text-xl font-semibold">Parent Friendly</h3>
-            <p className="text-muted-foreground">
-              Simple interface for parents to view dues, make payments, and track history.
-            </p>
-          </div>
-
-          <div className="text-center space-y-4">
-            <div className="w-16 h-16 mx-auto bg-accent/10 rounded-full flex items-center justify-center">
-              <Shield className="h-8 w-8 text-accent" />
-            </div>
-            <h3 className="text-xl font-semibold">Admin Control</h3>
-            <p className="text-muted-foreground">
-              Comprehensive dashboard for managing students, fees, and generating reports.
-            </p>
-          </div>
-        </div>
+        
       </div>
     </div>;
 };

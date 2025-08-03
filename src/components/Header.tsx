@@ -17,7 +17,7 @@ export const Header = ({
             
           </div>
           <div>
-            <h1 className="text-xl font-bold bg-gradient-hero bg-clip-text text-transparent">WAFAA Preschool</h1>
+            <h1 className="text-xl font-bold bg-gradient-hero bg-clip-text text-transparent">WAFA Preschool</h1>
             <p className="text-xs text-muted-foreground">Fee Management System</p>
           </div>
         </div>
