@@ -6,70 +6,43 @@ import { AdminDashboard } from "@/components/AdminDashboard";
 import { ParentDashboard } from "@/components/ParentDashboard";
 import { Shield, Heart } from "lucide-react";
 import heroImage from "@/assets/preschool-hero.jpg";
-
 type UserData = {
   id: string;
   name: string;
   type: 'admin' | 'parent';
 };
-
 type AppState = 'welcome' | 'login' | 'dashboard';
-
 const Index = () => {
   const [appState, setAppState] = useState<AppState>('welcome');
   const [selectedRole, setSelectedRole] = useState<'admin' | 'parent' | null>(null);
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
-
   const handleRoleSelect = (role: 'admin' | 'parent') => {
     setSelectedRole(role);
     setAppState('login');
   };
-
   const handleLogin = (userData: UserData) => {
     setCurrentUser(userData);
     setAppState('dashboard');
   };
-
   const handleLogout = () => {
     setCurrentUser(null);
     setSelectedRole(null);
     setAppState('welcome');
   };
-
   const handleBack = () => {
     setSelectedRole(null);
     setAppState('welcome');
   };
-
   if (appState === 'login' && selectedRole) {
-    return (
-      <LoginForm
-        userType={selectedRole}
-        onLogin={handleLogin}
-        onBack={handleBack}
-      />
-    );
+    return <LoginForm userType={selectedRole} onLogin={handleLogin} onBack={handleBack} />;
   }
-
   if (appState === 'dashboard' && currentUser) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header
-          userType={currentUser.type}
-          userName={currentUser.name}
-          onLogout={handleLogout}
-        />
-        {currentUser.type === 'admin' ? (
-          <AdminDashboard />
-        ) : (
-          <ParentDashboard currentUser={currentUser} />
-        )}
-      </div>
-    );
+    return <div className="min-h-screen bg-background">
+        <Header userType={currentUser.type} userName={currentUser.name} onLogout={handleLogout} />
+        {currentUser.type === 'admin' ? <AdminDashboard /> : <ParentDashboard currentUser={currentUser} />}
+      </div>;
   }
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
+  return <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/30">
       <Header />
       
       {/* Hero Section */}
@@ -94,19 +67,8 @@ const Index = () => {
               </div>
 
               <div className="grid sm:grid-cols-2 gap-4 max-w-md">
-                <RoleCard
-                  title="Admin"
-                  description="Manage students, track payments, and generate reports"
-                  icon={Shield}
-                  onClick={() => handleRoleSelect('admin')}
-                  gradient={true}
-                />
-                <RoleCard
-                  title="Parent"
-                  description="View fee status and make secure payments online"
-                  icon={Heart}
-                  onClick={() => handleRoleSelect('parent')}
-                />
+                <RoleCard title="Admin" description="Manage students, track payments, and generate reports" icon={Shield} onClick={() => handleRoleSelect('admin')} gradient={true} />
+                <RoleCard title="Parent" description="View fee status and make secure payments online" icon={Heart} onClick={() => handleRoleSelect('parent')} />
               </div>
 
               <div className="space-y-2 text-sm text-muted-foreground">
@@ -118,12 +80,8 @@ const Index = () => {
 
             <div className="relative">
               <div className="relative overflow-hidden rounded-2xl shadow-hover">
-                <img
-                  src={heroImage}
-                  alt="Little Stars Preschool"
-                  className="w-full h-[400px] lg:h-[500px] object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                <img src={heroImage} alt="Little Stars Preschool" className="w-full h-[400px] lg:h-[500px] object-cover" />
+                
               </div>
               <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-gradient-primary rounded-full opacity-20 blur-xl" />
               <div className="absolute -top-6 -left-6 w-32 h-32 bg-gradient-secondary rounded-full opacity-20 blur-xl" />
@@ -174,8 +132,6 @@ const Index = () => {
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
