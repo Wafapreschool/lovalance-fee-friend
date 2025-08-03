@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { FileText, Download, TrendingUp, Users, CreditCard, Calendar } from "lucide-react";
+import * as XLSX from 'xlsx';
 
 interface SchoolYear {
   id: string;
@@ -172,7 +173,43 @@ export const ReportsComponent = () => {
   }, [selectedYear, selectedMonth]);
 
   const exportReport = () => {
-    toast.success("Export functionality coming soon!");
+    if (!reportData || reportData.studentFees.length === 0) {
+      toast.error("No data available to export");
+      return;
+    }
+
+    try {
+      const selectedYearData = schoolYears.find(year => year.id === selectedYear);
+      const selectedMonthData = selectedMonth ? getMonthsForSelectedYear().find(month => month.id === selectedMonth) : null;
+      
+      const exportData = reportData.studentFees.map(fee => ({
+        'Student Name': fee.student.full_name,
+        'Student ID': fee.student.student_id,
+        'Class': fee.student.class_name,
+        'Amount (MVR)': fee.amount,
+        'Status': fee.status.toUpperCase()
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      
+      const sheetName = selectedMonthData 
+        ? `${selectedMonthData.month_name}_${selectedYearData?.year}` 
+        : `Year_${selectedYearData?.year}`;
+      
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+      
+      const fileName = selectedMonthData 
+        ? `Fee_Report_${selectedMonthData.month_name}_${selectedYearData?.year}.xlsx`
+        : `Fee_Report_Year_${selectedYearData?.year}.xlsx`;
+      
+      XLSX.writeFile(workbook, fileName);
+      
+      toast.success(`Report exported as ${fileName}`);
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error("Failed to export report");
+    }
   };
 
   const getMonthsForSelectedYear = () => {

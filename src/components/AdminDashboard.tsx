@@ -9,6 +9,8 @@ import { ViewStudentDetails } from "./ViewStudentDetails";
 import { FeeManagement } from "./FeeManagement";
 import { SchoolYearManagement } from "./SchoolYearManagement";
 import { ReportsComponent } from "./ReportsComponent";
+import { YearBasedStudentManagement } from "./YearBasedStudentManagement";
+import { MonthlyFeeManagement } from "./MonthlyFeeManagement";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Users, CreditCard, TrendingUp, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -187,53 +189,21 @@ export const AdminDashboard = () => {
       </div>
 
       {/* Management Tabs */}
-      <Tabs defaultValue="students" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 h-auto">
-          <TabsTrigger value="students" className="text-xs sm:text-sm py-3">Students</TabsTrigger>
-          <TabsTrigger value="school-years" className="text-xs sm:text-sm py-3">Fee Management</TabsTrigger>
-          <TabsTrigger value="fees" className="text-xs sm:text-sm py-3">Professional Fee System</TabsTrigger>
+      <Tabs defaultValue="year-students" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-5 h-auto">
+          <TabsTrigger value="year-students" className="text-xs sm:text-sm py-3">Students by Year</TabsTrigger>
+          <TabsTrigger value="monthly-fees" className="text-xs sm:text-sm py-3">Monthly Fees</TabsTrigger>
+          <TabsTrigger value="school-years" className="text-xs sm:text-sm py-3">Year Management</TabsTrigger>
+          <TabsTrigger value="fees" className="text-xs sm:text-sm py-3">Fee System</TabsTrigger>
           <TabsTrigger value="reports" className="text-xs sm:text-sm py-3">Reports</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="students" className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4 sm:justify-between sm:items-center">
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold">Student Management</h2>
-              <p className="text-sm text-muted-foreground">Manage student registrations and information</p>
-            </div>
-            <Button variant="gradient" onClick={() => setShowAddForm(true)} className="w-full sm:w-auto">
-              Add New Student
-            </Button>
-          </div>
+        <TabsContent value="year-students" className="space-y-4">
+          <YearBasedStudentManagement />
+        </TabsContent>
 
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="bg-muted h-48 rounded-lg"></div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {students.length > 0 ? (
-                students.map((student) => (
-                  <StudentCard
-                    key={student.id}
-                    student={student}
-                    onViewDetails={handleViewStudent}
-                    onEditStudent={handleEditStudent}
-                    onDeleteStudent={handleDeleteStudent}
-                    isParentView={false}
-                  />
-                ))
-              ) : (
-                <div className="col-span-full text-center py-8">
-                  <p className="text-muted-foreground">No students found. Add your first student to get started.</p>
-                </div>
-              )}
-            </div>
-          )}
+        <TabsContent value="monthly-fees" className="space-y-4">
+          <MonthlyFeeManagement />
         </TabsContent>
 
         <TabsContent value="school-years" className="space-y-4">

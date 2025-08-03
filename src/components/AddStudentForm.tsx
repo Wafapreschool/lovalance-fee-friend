@@ -11,13 +11,14 @@ interface AddStudentFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStudentAdded: () => void;
+  defaultYear?: number;
 }
 
-export const AddStudentForm = ({ open, onOpenChange, onStudentAdded }: AddStudentFormProps) => {
+export const AddStudentForm = ({ open, onOpenChange, onStudentAdded, defaultYear }: AddStudentFormProps) => {
   const [formData, setFormData] = useState({
     full_name: "",
     class_name: "",
-    year_joined: new Date().getFullYear(),
+    year_joined: defaultYear || new Date().getFullYear(),
     parent_phone: "",
     student_id: "",
     id_card_number: "",
