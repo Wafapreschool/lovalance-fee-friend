@@ -3,9 +3,37 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { FileText, Download, TrendingUp, Users, CreditCard } from "lucide-react";
+import { FileText, Download, TrendingUp, Users, CreditCard, Calendar } from "lucide-react";
+
+interface SchoolYear {
+  id: string;
+  year: number;
+  is_active: boolean;
+}
+
+interface SchoolMonth {
+  id: string;
+  school_year_id: string;
+  month_name: string;
+  month_number: number;
+  due_date: string;
+  is_active: boolean;
+}
+
+interface StudentFeeReport {
+  id: string;
+  amount: number;
+  status: string;
+  student: {
+    full_name: string;
+    student_id: string;
+    class_name: string;
+  };
+}
 
 interface ReportData {
   totalStudents: number;
@@ -13,115 +41,108 @@ interface ReportData {
   paidFees: number;
   pendingFees: number;
   overdueFeesCount: number;
-  classWiseStats: {
-    class_name: string;
-    total_students: number;
-    paid_fees: number;
-    pending_fees: number;
-    total_revenue: number;
-  }[];
-  monthlyStats: {
-    month: string;
-    year: number;
-    total_amount: number;
-    paid_amount: number;
-    pending_amount: number;
-  }[];
+  studentFees: StudentFeeReport[];
 }
 
 export const ReportsComponent = () => {
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [schoolYears, setSchoolYears] = useState<SchoolYear[]>([]);
+  const [schoolMonths, setSchoolMonths] = useState<SchoolMonth[]>([]);
+  const [selectedYear, setSelectedYear] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
+
+  const fetchInitialData = async () => {
+    try {
+      // Fetch school years
+      const { data: yearsData, error: yearsError } = await supabase
+        .from('school_years')
+        .select('*')
+        .order('year', { ascending: false });
+
+      if (yearsError) throw yearsError;
+
+      // Fetch school months
+      const { data: monthsData, error: monthsError } = await supabase
+        .from('school_months')
+        .select('*')
+        .order('month_number');
+
+      if (monthsError) throw monthsError;
+
+      setSchoolYears(yearsData || []);
+      setSchoolMonths(monthsData || []);
+      
+      // Auto-select first year if available
+      if (yearsData && yearsData.length > 0) {
+        setSelectedYear(yearsData[0].id);
+      }
+    } catch (error) {
+      console.error('Error fetching initial data:', error);
+      toast.error("Failed to load years and months");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchReportData = async () => {
+    if (!selectedYear) return;
+    
     try {
-      // Fetch students data
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select('*');
+      setLoading(true);
+      
+      let query = supabase
+        .from('student_fees')
+        .select(`
+          id,
+          amount,
+          status,
+          students!inner (
+            full_name,
+            student_id,
+            class_name
+          ),
+          school_months!inner (
+            school_year_id
+          )
+        `)
+        .eq('school_months.school_year_id', selectedYear);
 
-      if (studentsError) {
-        console.error('Error fetching students:', studentsError);
-        toast.error("Failed to load students data");
-        return;
+      // Add month filter if selected
+      if (selectedMonth) {
+        query = query.eq('school_month_id', selectedMonth);
       }
 
-      // Fetch fees data
-      const { data: feesData, error: feesError } = await supabase
-        .from('fees')
-        .select(`
-          *,
-          students!inner(
-            class_name
-          )
-        `);
+      const { data: studentFeesData, error: feesError } = await query;
 
       if (feesError) {
-        console.error('Error fetching fees:', feesError);
-        toast.error("Failed to load fees data");
+        console.error('Error fetching student fees:', feesError);
+        toast.error("Failed to load fee data");
         return;
       }
 
       // Calculate statistics
-      const totalStudents = studentsData?.length || 0;
-      const paidFees = feesData?.filter(fee => fee.status === 'paid').length || 0;
-      const pendingFees = feesData?.filter(fee => fee.status === 'pending').length || 0;
-      const overdueFeesCount = feesData?.filter(fee => fee.status === 'overdue').length || 0;
-      const totalRevenue = feesData?.filter(fee => fee.status === 'paid')
+      const paidFees = studentFeesData?.filter(fee => fee.status === 'paid').length || 0;
+      const pendingFees = studentFeesData?.filter(fee => fee.status === 'pending').length || 0;
+      const overdueFeesCount = studentFeesData?.filter(fee => fee.status === 'overdue').length || 0;
+      const totalRevenue = studentFeesData?.filter(fee => fee.status === 'paid')
         .reduce((sum, fee) => sum + (fee.amount || 0), 0) || 0;
 
-      // Class-wise statistics
-      const classStats = studentsData?.reduce((acc: any, student) => {
-        const className = student.class_name;
-        if (!acc[className]) {
-          acc[className] = {
-            class_name: className,
-            total_students: 0,
-            paid_fees: 0,
-            pending_fees: 0,
-            total_revenue: 0
-          };
+      // Transform student fees for display
+      const transformedFees: StudentFeeReport[] = (studentFeesData || []).map(fee => ({
+        id: fee.id,
+        amount: fee.amount,
+        status: fee.status,
+        student: {
+          full_name: fee.students.full_name,
+          student_id: fee.students.student_id,
+          class_name: fee.students.class_name
         }
-        
-        acc[className].total_students += 1;
-        
-        const studentFees = feesData?.filter(fee => fee.student_id === student.id);
-        studentFees?.forEach(fee => {
-          if (fee.status === 'paid') {
-            acc[className].paid_fees += 1;
-            acc[className].total_revenue += fee.amount;
-          } else if (fee.status === 'pending') {
-            acc[className].pending_fees += 1;
-          }
-        });
-        
-        return acc;
-      }, {});
+      }));
 
-      const classWiseStats = Object.values(classStats || {}) as any[];
-
-      // Monthly statistics
-      const monthlyStats = feesData?.reduce((acc: any, fee) => {
-        const key = `${fee.month}-${fee.year}`;
-        if (!acc[key]) {
-          acc[key] = {
-            month: fee.month,
-            year: fee.year,
-            total_amount: 0,
-            paid_amount: 0,
-            pending_amount: 0
-          };
-        }
-        
-        acc[key].total_amount += fee.amount;
-        if (fee.status === 'paid') {
-          acc[key].paid_amount += fee.amount;
-        } else {
-          acc[key].pending_amount += fee.amount;
-        }
-        
-        return acc;
-      }, {});
+      // Get unique students count
+      const uniqueStudents = new Set(transformedFees.map(fee => fee.student.student_id));
+      const totalStudents = uniqueStudents.size;
 
       setReportData({
         totalStudents,
@@ -129,8 +150,7 @@ export const ReportsComponent = () => {
         paidFees,
         pendingFees,
         overdueFeesCount,
-        classWiseStats,
-        monthlyStats: Object.values(monthlyStats || {}) as any[]
+        studentFees: transformedFees
       });
 
     } catch (error) {
@@ -142,11 +162,21 @@ export const ReportsComponent = () => {
   };
 
   useEffect(() => {
-    fetchReportData();
+    fetchInitialData();
   }, []);
+
+  useEffect(() => {
+    if (selectedYear) {
+      fetchReportData();
+    }
+  }, [selectedYear, selectedMonth]);
 
   const exportReport = () => {
     toast.success("Export functionality coming soon!");
+  };
+
+  const getMonthsForSelectedYear = () => {
+    return schoolMonths.filter(month => month.school_year_id === selectedYear);
   };
 
   if (loading) {
@@ -173,6 +203,47 @@ export const ReportsComponent = () => {
 
   return (
     <div className="space-y-6">
+      {/* Header with Year/Month Selection */}
+      <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Academic Reports</h2>
+          <p className="text-muted-foreground">View payment reports by academic year and month</p>
+        </div>
+        <div className="flex gap-2">
+          <div className="min-w-[180px]">
+            <Label htmlFor="year-select">Academic Year</Label>
+            <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <SelectTrigger id="year-select">
+                <SelectValue placeholder="Select year" />
+              </SelectTrigger>
+              <SelectContent>
+                {schoolYears.map((year) => (
+                  <SelectItem key={year.id} value={year.id}>
+                    Academic Year {year.year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="min-w-[150px]">
+            <Label htmlFor="month-select">Month (Optional)</Label>
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger id="month-select">
+                <SelectValue placeholder="All months" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Months</SelectItem>
+                {getMonthsForSelectedYear().map((month) => (
+                  <SelectItem key={month.id} value={month.id}>
+                    {month.month_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
@@ -218,17 +289,22 @@ export const ReportsComponent = () => {
         </Card>
       </div>
 
-      {/* Class-wise Report */}
+      {/* Student Fee Details */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Class-wise Report</CardTitle>
-              <CardDescription>Fee collection statistics by class</CardDescription>
+              <CardTitle>Student Fee Details</CardTitle>
+              <CardDescription>
+                {selectedMonth 
+                  ? `Fee details for ${getMonthsForSelectedYear().find(m => m.id === selectedMonth)?.month_name || 'selected month'}`
+                  : `All fee details for the selected academic year`
+                }
+              </CardDescription>
             </div>
             <Button onClick={exportReport} variant="outline">
               <Download className="h-4 w-4 mr-2" />
-              Export
+              Export Excel
             </Button>
           </div>
         </CardHeader>
@@ -237,93 +313,32 @@ export const ReportsComponent = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Student Name</TableHead>
+                  <TableHead>Student ID</TableHead>
                   <TableHead>Class</TableHead>
-                  <TableHead>Total Students</TableHead>
-                  <TableHead>Paid Fees</TableHead>
-                  <TableHead>Pending Fees</TableHead>
-                  <TableHead>Revenue</TableHead>
-                  <TableHead>Collection Rate</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {reportData.classWiseStats.map((classData) => {
-                  const collectionRate = classData.total_students > 0 
-                    ? ((classData.paid_fees / (classData.paid_fees + classData.pending_fees)) * 100) || 0
-                    : 0;
-                  
-                  return (
-                    <TableRow key={classData.class_name}>
-                      <TableCell className="font-medium">{classData.class_name}</TableCell>
-                      <TableCell>{classData.total_students}</TableCell>
-                      <TableCell>
-                        <Badge variant="default" className="bg-success text-success-foreground">
-                          {classData.paid_fees}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="bg-warning text-warning-foreground">
-                          {classData.pending_fees}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>MVR {classData.total_revenue.toLocaleString()}</TableCell>
-                      <TableCell>
-                        <Badge variant={collectionRate >= 80 ? "default" : collectionRate >= 60 ? "secondary" : "destructive"}>
-                          {collectionRate.toFixed(1)}%
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Monthly Report */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Monthly Report</CardTitle>
-          <CardDescription>Fee collection by month</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Period</TableHead>
-                  <TableHead>Total Amount</TableHead>
-                  <TableHead>Paid Amount</TableHead>
-                  <TableHead>Pending Amount</TableHead>
-                  <TableHead>Collection %</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {reportData.monthlyStats.map((monthData) => {
-                  const collectionPercentage = monthData.total_amount > 0 
-                    ? (monthData.paid_amount / monthData.total_amount) * 100 
-                    : 0;
-                  
-                  return (
-                    <TableRow key={`${monthData.month}-${monthData.year}`}>
-                      <TableCell className="font-medium">
-                        {monthData.month} {monthData.year}
-                      </TableCell>
-                      <TableCell>MVR {monthData.total_amount.toLocaleString()}</TableCell>
-                      <TableCell className="text-success">
-                        MVR {monthData.paid_amount.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-warning">
-                        MVR {monthData.pending_amount.toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={collectionPercentage >= 80 ? "default" : collectionPercentage >= 60 ? "secondary" : "destructive"}>
-                          {collectionPercentage.toFixed(1)}%
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {reportData.studentFees.map((fee) => (
+                  <TableRow key={fee.id}>
+                    <TableCell className="font-medium">{fee.student.full_name}</TableCell>
+                    <TableCell>{fee.student.student_id}</TableCell>
+                    <TableCell>{fee.student.class_name}</TableCell>
+                    <TableCell>MVR {fee.amount.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant={
+                          fee.status === 'paid' ? 'default' : 
+                          fee.status === 'overdue' ? 'destructive' : 'secondary'
+                        }
+                      >
+                        {fee.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </div>

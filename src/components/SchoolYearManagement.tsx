@@ -32,6 +32,7 @@ interface Student {
   full_name: string;
   class_name: string;
   student_id: string;
+  year_joined?: number;
 }
 
 interface StudentFee {
@@ -53,6 +54,8 @@ export const SchoolYearManagement = () => {
   const [monthStudents, setMonthStudents] = useState<StudentFee[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedYearStudents, setSelectedYearStudents] = useState<Student[]>([]);
+  const [showStudentsForYear, setShowStudentsForYear] = useState<string>("");
   
   // Form states
   const [newYear, setNewYear] = useState<number>(new Date().getFullYear());
@@ -60,6 +63,7 @@ export const SchoolYearManagement = () => {
   const [showMonthDialog, setShowMonthDialog] = useState(false);
   const [showStudentDialog, setShowStudentDialog] = useState(false);
   const [showViewStudentsDialog, setShowViewStudentsDialog] = useState(false);
+  const [showYearStudentsDialog, setShowYearStudentsDialog] = useState(false);
   const [selectedYearId, setSelectedYearId] = useState<string>("");
   const [selectedMonthId, setSelectedMonthId] = useState<string>("");
   const [editingYear, setEditingYear] = useState<SchoolYear | null>(null);
@@ -387,6 +391,25 @@ export const SchoolYearManagement = () => {
     return schoolMonths.filter(month => month.school_year_id === yearId);
   };
 
+  const fetchStudentsForYear = async (year: number) => {
+    try {
+      const { data: studentsData, error } = await supabase
+        .from('students')
+        .select('id, full_name, class_name, student_id, year_joined')
+        .eq('year_joined', year)
+        .order('full_name');
+
+      if (error) throw error;
+
+      setSelectedYearStudents(studentsData || []);
+      setShowStudentsForYear(year.toString());
+      setShowYearStudentsDialog(true);
+    } catch (error) {
+      console.error('Error fetching students for year:', error);
+      toast.error("Failed to load students for this year");
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -404,8 +427,8 @@ export const SchoolYearManagement = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold">School Year & Fee Management</h2>
-          <p className="text-muted-foreground">Manage school years, months, and assign fees to students</p>
+          <h2 className="text-2xl font-bold">Academic Year & Monthly Fee Management</h2>
+          <p className="text-muted-foreground">Manage academic years, add months, assign students, and set monthly fees</p>
         </div>
         
         <Dialog open={showYearDialog} onOpenChange={setShowYearDialog}>
@@ -459,6 +482,15 @@ export const SchoolYearManagement = () => {
                 </div>
                 
                 <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => fetchStudentsForYear(year.year)}
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    View Students
+                  </Button>
+                  
                   <Button 
                     variant="outline" 
                     size="sm"
@@ -805,6 +837,52 @@ export const SchoolYearManagement = () => {
           
           <div className="flex justify-end">
             <Button variant="outline" onClick={() => setShowViewStudentsDialog(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Students for Year Dialog */}
+      <Dialog open={showYearStudentsDialog} onOpenChange={setShowYearStudentsDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Students Enrolled in {showStudentsForYear}</DialogTitle>
+            <DialogDescription>All students who joined in the academic year {showStudentsForYear}</DialogDescription>
+          </DialogHeader>
+          
+          <div className="overflow-y-auto">
+            {selectedYearStudents.length > 0 ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {selectedYearStudents.map((student) => (
+                    <Card key={student.id} className="p-4">
+                      <div className="space-y-2">
+                        <h4 className="font-medium">{student.full_name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Student ID: {student.student_id}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Class: {student.class_name}
+                        </p>
+                        <Badge variant="outline">
+                          Year {student.year_joined}
+                        </Badge>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No students found for the year {showStudentsForYear}</p>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setShowYearStudentsDialog(false)}>
               Close
             </Button>
           </div>

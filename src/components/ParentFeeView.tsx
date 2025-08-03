@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { CalendarDays, CreditCard, Clock, CheckCircle } from "lucide-react";
+import { CalendarDays, CreditCard, Clock, CheckCircle, ExternalLink, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -159,9 +159,9 @@ export const ParentFeeView = ({ currentUser }: ParentFeeViewProps = {}) => {
         <CheckCircle className="h-3 w-3 mr-1" />
         Paid
       </Badge>;
-    } else if (isOverdue) {
+    } else if (status === 'overdue' || isOverdue) {
       return <Badge variant="destructive">
-        <Clock className="h-3 w-3 mr-1" />
+        <AlertCircle className="h-3 w-3 mr-1" />
         Overdue
       </Badge>;
     } else {
@@ -172,9 +172,28 @@ export const ParentFeeView = ({ currentUser }: ParentFeeViewProps = {}) => {
     }
   };
 
-  const handlePayment = (feeId: string, studentName: string, month: string, amount: number) => {
-    // In a real app, this would integrate with payment gateway
-    toast.info(`Payment for ${studentName} - ${month} (MVR ${amount}) would be processed here`);
+  const handlePayment = async (feeId: string, studentName: string, month: string, amount: number) => {
+    try {
+      // Show loading toast
+      const loadingToast = toast.loading(`Redirecting to BML Gateway for ${month} payment...`);
+      
+      // In a real implementation, this would:
+      // 1. Create a payment session with BML Gateway
+      // 2. Include the student_fee_id in the payment reference
+      // 3. Redirect to BML payment page
+      // 4. Handle the webhook response to update payment status
+      
+      // For now, simulate the redirect
+      setTimeout(() => {
+        toast.dismiss(loadingToast);
+        toast.success(`Payment gateway opened for ${studentName} - ${month} (MVR ${amount.toLocaleString()})`);
+        console.log("BML Gateway integration - Fee ID:", feeId);
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error("Failed to initiate payment. Please try again.");
+    }
   };
 
   const getFeesForYearAndStudent = (yearId: string, studentId: string) => {
@@ -335,10 +354,23 @@ export const ParentFeeView = ({ currentUser }: ParentFeeViewProps = {}) => {
                                     {fee.status === 'pending' && (
                                       <Button
                                         onClick={() => handlePayment(fee.id, student.full_name, month.month_name, fee.amount)}
+                                        variant="gradient"
                                         className="flex items-center gap-2"
                                       >
                                         <CreditCard className="h-4 w-4" />
                                         Pay Now
+                                        <ExternalLink className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                    {fee.status === 'overdue' && (
+                                      <Button
+                                        onClick={() => handlePayment(fee.id, student.full_name, month.month_name, fee.amount)}
+                                        variant="destructive"
+                                        className="flex items-center gap-2"
+                                      >
+                                        <AlertCircle className="h-4 w-4" />
+                                        Pay Overdue
+                                        <ExternalLink className="h-3 w-3" />
                                       </Button>
                                     )}
                                     {fee.status === 'paid' && (
