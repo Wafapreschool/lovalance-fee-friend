@@ -80,7 +80,7 @@ export const ParentLogin = ({
           </div>
           <h1 className="text-white text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold mb-1 md:mb-2">WAFA PRE SCHOOL</h1>
           <p className="text-white/80 text-sm sm:text-base md:text-lg">FEE MANAGEMENT SYSTEM</p>
-          <p className="text-white/60 text-xs sm:text-sm mt-1">Academic Year {currentYear}</p>
+          
         </div>
 
         {/* Login Card */}
