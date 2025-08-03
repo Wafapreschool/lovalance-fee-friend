@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Users, Eye, Edit, Trash2, Plus } from "lucide-react";
@@ -43,6 +45,8 @@ export const YearBasedStudentManagement = () => {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
+  const [showAddYearDialog, setShowAddYearDialog] = useState(false);
+  const [newYear, setNewYear] = useState<string>("");
 
   const fetchSchoolYears = async () => {
     try {
@@ -150,6 +154,56 @@ export const YearBasedStudentManagement = () => {
     fetchSchoolYears();
   };
 
+  const handleAddYear = async () => {
+    if (!newYear || isNaN(parseInt(newYear))) {
+      toast.error("Please enter a valid year");
+      return;
+    }
+
+    const yearNumber = parseInt(newYear);
+    const currentYear = new Date().getFullYear();
+    
+    if (yearNumber < 2020 || yearNumber > currentYear + 10) {
+      toast.error("Please enter a year between 2020 and " + (currentYear + 10));
+      return;
+    }
+
+    try {
+      // Check if year already exists
+      const { data: existingYear } = await supabase
+        .from('school_years')
+        .select('id')
+        .eq('year', yearNumber)
+        .single();
+
+      if (existingYear) {
+        toast.error("This academic year already exists");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('school_years')
+        .insert({
+          year: yearNumber,
+          is_active: true
+        });
+
+      if (error) {
+        console.error('Error adding year:', error);
+        toast.error("Failed to add academic year");
+        return;
+      }
+
+      toast.success(`Academic Year ${yearNumber} added successfully`);
+      setNewYear("");
+      setShowAddYearDialog(false);
+      fetchSchoolYears();
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error("An error occurred while adding academic year");
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -163,13 +217,21 @@ export const YearBasedStudentManagement = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Student Management by Academic Year</h2>
-          <p className="text-muted-foreground">View and manage students organized by their joining year</p>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-bold">Student Management by Academic Year</h2>
+            <p className="text-muted-foreground">View and manage students organized by their joining year</p>
+          </div>
+          <Button 
+            variant="default" 
+            onClick={() => setShowAddYearDialog(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add Year
+          </Button>
         </div>
-      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {schoolYears.map((year) => (
@@ -312,6 +374,39 @@ export const YearBasedStudentManagement = () => {
         onStudentUpdated={handleStudentAdded}
         studentId={selectedStudentId}
       />
+
+      <Dialog open={showAddYearDialog} onOpenChange={setShowAddYearDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Academic Year</DialogTitle>
+            <DialogDescription>
+              Enter the year for the new academic period (e.g., 2025)
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="newYear">Academic Year</Label>
+              <Input
+                id="newYear"
+                type="number"
+                placeholder="2025"
+                value={newYear}
+                onChange={(e) => setNewYear(e.target.value)}
+                min="2020"
+                max={new Date().getFullYear() + 10}
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setShowAddYearDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleAddYear}>
+                Add Year
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
