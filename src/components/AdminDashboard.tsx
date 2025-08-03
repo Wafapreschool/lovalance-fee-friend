@@ -10,7 +10,7 @@ import { FeeManagement } from "./FeeManagement";
 import { SchoolYearManagement } from "./SchoolYearManagement";
 import { ReportsComponent } from "./ReportsComponent";
 import { YearBasedStudentManagement } from "./YearBasedStudentManagement";
-import { MonthlyFeeManagement } from "./MonthlyFeeManagement";
+import { EnhancedFeeManagement } from "./EnhancedFeeManagement";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Users, CreditCard, TrendingUp, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -201,7 +201,7 @@ export const AdminDashboard = () => {
         </TabsContent>
 
         <TabsContent value="fees" className="space-y-4">
-          <MonthlyFeeManagement />
+          <EnhancedFeeManagement />
         </TabsContent>
 
         <TabsContent value="reports" className="space-y-4">
