@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Calendar, Users, Plus, Edit, Trash2, Check } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Calendar, Users, Plus, Edit, Trash2, Check, ChevronDown, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -55,6 +56,7 @@ export const MonthlyFeeManagement = () => {
   const [existingFees, setExistingFees] = useState<StudentFee[]>([]);
   const [activeMonth, setActiveMonth] = useState<string | null>(null);
   const [processingFees, setProcessingFees] = useState(false);
+  const [expandedYears, setExpandedYears] = useState<string[]>([]);
 
   const fetchInitialData = async () => {
     try {
@@ -201,6 +203,14 @@ export const MonthlyFeeManagement = () => {
     return schoolMonths.filter(month => month.school_year_id === yearId);
   };
 
+  const toggleYearExpanded = (yearId: string) => {
+    setExpandedYears(prev => 
+      prev.includes(yearId) 
+        ? prev.filter(id => id !== yearId)
+        : [...prev, yearId]
+    );
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -222,16 +232,31 @@ export const MonthlyFeeManagement = () => {
 
       {schoolYears.map((year) => {
         const yearMonths = getMonthsForYear(year.id);
+        const isExpanded = expandedYears.includes(year.id);
         
         return (
           <Card key={year.id} className="bg-gradient-card">
             <CardHeader>
               <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle className="text-xl">Academic Year {year.year}</CardTitle>
-                  <CardDescription>
-                    {yearMonths.length} month{yearMonths.length !== 1 ? 's' : ''} configured
-                  </CardDescription>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleYearExpanded(year.id)}
+                    className="p-1 h-8 w-8"
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <div>
+                    <CardTitle className="text-xl">Academic Year {year.year}</CardTitle>
+                    <CardDescription>
+                      {yearMonths.length} month{yearMonths.length !== 1 ? 's' : ''} configured
+                    </CardDescription>
+                  </div>
                 </div>
                 {year.is_active && (
                   <Badge variant="default" className="bg-success text-success-foreground">Active</Badge>
@@ -239,7 +264,7 @@ export const MonthlyFeeManagement = () => {
               </div>
             </CardHeader>
             <CardContent>
-              {yearMonths.length > 0 ? (
+              {isExpanded && yearMonths.length > 0 ? (
                 <div className="space-y-3">
                   {yearMonths.map((month) => (
                     <div key={month.id} className="border rounded-lg p-4 space-y-4">
@@ -350,11 +375,11 @@ export const MonthlyFeeManagement = () => {
                     </div>
                   ))}
                 </div>
-              ) : (
+              ) : isExpanded && yearMonths.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-muted-foreground">No months configured for this year</p>
                 </div>
-              )}
+              ) : null}
             </CardContent>
           </Card>
         );
