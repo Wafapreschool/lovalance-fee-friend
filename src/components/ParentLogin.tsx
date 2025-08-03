@@ -71,53 +71,53 @@ export const ParentLogin = ({
       setIsLoading(false);
     }
   };
-  return <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-400 to-slate-600 p-4">
-      <div className="w-full max-w-sm md:max-w-md">
+  return <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-400 to-slate-600 p-3 sm:p-4 lg:p-6">
+      <div className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg">
         {/* Header */}
-        <div className="text-center mb-6 md:mb-8">
-          <div className="w-20 h-20 md:w-24 md:h-24 bg-white rounded-full mx-auto mb-3 md:mb-4 flex items-center justify-center p-2">
+        <div className="text-center mb-4 sm:mb-6 md:mb-8">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 bg-white rounded-full mx-auto mb-2 sm:mb-3 md:mb-4 flex items-center justify-center p-2">
             <img src="/lovable-uploads/da3b5ef5-9d2d-4940-8fb9-26e2bfc05b93.png" alt="Wafa Pre School Logo" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-white text-xl md:text-2xl font-bold mb-1 md:mb-2">WAFA PRE SCHOOL</h1>
-          <p className="text-white/80 text-base md:text-lg">FEE MANAGEMENT SYSTEM</p>
-          
+          <h1 className="text-white text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold mb-1 md:mb-2">WAFA PRE SCHOOL</h1>
+          <p className="text-white/80 text-sm sm:text-base md:text-lg">FEE MANAGEMENT SYSTEM</p>
+          <p className="text-white/60 text-xs sm:text-sm mt-1">Academic Year {currentYear}</p>
         </div>
 
         {/* Login Card */}
         <Card className="bg-white/95 backdrop-blur shadow-xl border-0">
-          <CardHeader className="pb-2 px-4 md:px-6">
-            <Button variant="ghost" size="sm" onClick={onBack} className="self-start -ml-2 mb-3 md:mb-4">
-              <ArrowLeft className="h-4 w-4 mr-2" />
+          <CardHeader className="pb-2 px-3 sm:px-4 md:px-6 pt-4 sm:pt-6">
+            <Button variant="ghost" size="sm" onClick={onBack} className="self-start -ml-2 mb-2 sm:mb-3 md:mb-4 h-8 sm:h-9 text-xs sm:text-sm">
+              <ArrowLeft className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
               Back
             </Button>
             <div className="text-center">
-              <h2 className="text-xl md:text-2xl font-semibold text-slate-700 mb-2">Login</h2>
+              <h2 className="text-lg sm:text-xl md:text-2xl font-semibold text-slate-700 mb-2">Parent Login</h2>
             </div>
           </CardHeader>
           
-          <CardContent className="space-y-4 md:space-y-6 px-4 md:px-6 pb-4 md:pb-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="studentId" className="text-slate-600">Student ID</Label>
-                <Input id="studentId" type="text" placeholder="Student ID" value={studentId} onChange={e => setStudentId(e.target.value)} required className="h-10 md:h-12 bg-slate-50 text-sm md:text-base" />
+          <CardContent className="space-y-3 sm:space-y-4 md:space-y-6 px-3 sm:px-4 md:px-6 pb-4 sm:pb-6">
+            <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+              <div className="space-y-1 sm:space-y-2">
+                <Label htmlFor="studentId" className="text-slate-600 text-xs sm:text-sm">Student ID</Label>
+                <Input id="studentId" type="text" placeholder="Student ID" value={studentId} onChange={e => setStudentId(e.target.value)} required className="h-9 sm:h-10 md:h-12 bg-slate-50 text-xs sm:text-sm md:text-base" />
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-600">Password</Label>
-                <Input id="password" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required className="h-10 md:h-12 bg-slate-50 text-sm md:text-base" />
+              <div className="space-y-1 sm:space-y-2">
+                <Label htmlFor="password" className="text-slate-600 text-xs sm:text-sm">Password</Label>
+                <Input id="password" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required className="h-9 sm:h-10 md:h-12 bg-slate-50 text-xs sm:text-sm md:text-base" />
               </div>
 
-              <div className="flex items-center justify-between text-xs md:text-sm">
+              <div className="flex items-center justify-between text-xs sm:text-sm">
                 <div className="flex items-center space-x-2">
                   <Checkbox id="remember" checked={rememberMe} onCheckedChange={checked => setRememberMe(checked as boolean)} />
                   <Label htmlFor="remember" className="text-slate-600">Remember me</Label>
                 </div>
-                <Button variant="link" className="text-slate-600 p-0 h-auto">
+                <Button variant="link" className="text-slate-600 p-0 h-auto text-xs sm:text-sm">
                   Forget Password
                 </Button>
               </div>
 
-              <Button type="submit" className="w-full h-10 md:h-12 bg-slate-600 hover:bg-slate-700 text-white font-semibold text-sm md:text-base" disabled={isLoading}>
+              <Button type="submit" className="w-full h-9 sm:h-10 md:h-12 bg-slate-600 hover:bg-slate-700 text-white font-semibold text-xs sm:text-sm md:text-base mt-4 sm:mt-6" disabled={isLoading}>
                 {isLoading ? "Signing in..." : "Login"}
               </Button>
             </form>
