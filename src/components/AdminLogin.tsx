@@ -49,34 +49,38 @@ export const AdminLogin = ({ onLogin, onBack }: AdminLoginProps) => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-400 to-slate-600 p-4">
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-sm md:max-w-md">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-24 h-24 bg-white/20 rounded-full mx-auto mb-4 flex items-center justify-center">
-            <div className="text-white text-2xl font-bold">WPS</div>
+        <div className="text-center mb-6 md:mb-8">
+          <div className="w-20 h-20 md:w-24 md:h-24 bg-white rounded-full mx-auto mb-3 md:mb-4 flex items-center justify-center p-2">
+            <img 
+              src="/lovable-uploads/da3b5ef5-9d2d-4940-8fb9-26e2bfc05b93.png" 
+              alt="Wafa Pre School Logo" 
+              className="w-full h-full object-contain"
+            />
           </div>
-          <h1 className="text-white text-2xl font-bold mb-2">WAFA PRE SCHOOL</h1>
-          <p className="text-white/80 text-lg">ADMIN PORTAL</p>
+          <h1 className="text-white text-xl md:text-2xl font-bold mb-1 md:mb-2">WAFA PRE SCHOOL</h1>
+          <p className="text-white/80 text-base md:text-lg">ADMIN PORTAL</p>
         </div>
 
         {/* Login Card */}
         <Card className="bg-white/95 backdrop-blur shadow-xl border-0">
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 px-4 md:px-6">
             <Button
               variant="ghost"
               size="sm"
               onClick={onBack}
-              className="self-start -ml-2 mb-4"
+              className="self-start -ml-2 mb-3 md:mb-4"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
             <div className="text-center">
-              <h2 className="text-2xl font-semibold text-slate-700 mb-2">Admin Login</h2>
+              <h2 className="text-xl md:text-2xl font-semibold text-slate-700 mb-2">Admin Login</h2>
             </div>
           </CardHeader>
           
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4 md:space-y-6 px-4 md:px-6 pb-4 md:pb-6">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="username" className="text-slate-600">Admin Username</Label>
@@ -87,7 +91,7 @@ export const AdminLogin = ({ onLogin, onBack }: AdminLoginProps) => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   required
-                  className="h-12 bg-slate-50"
+                  className="h-10 md:h-12 bg-slate-50 text-sm md:text-base"
                 />
               </div>
               
@@ -100,7 +104,7 @@ export const AdminLogin = ({ onLogin, onBack }: AdminLoginProps) => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="h-12 bg-slate-50"
+                  className="h-10 md:h-12 bg-slate-50 text-sm md:text-base"
                 />
               </div>
 
@@ -112,7 +116,7 @@ export const AdminLogin = ({ onLogin, onBack }: AdminLoginProps) => {
 
               <Button 
                 type="submit" 
-                className="w-full h-12 bg-slate-600 hover:bg-slate-700 text-white font-semibold"
+                className="w-full h-10 md:h-12 bg-slate-600 hover:bg-slate-700 text-white font-semibold text-sm md:text-base"
                 disabled={isLoading}
               >
                 {isLoading ? "Signing in..." : "Login"}
