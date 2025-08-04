@@ -71,8 +71,7 @@ export const ParentLogin = ({
       setIsLoading(false);
     }
   };
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-400 to-slate-600 flex flex-col items-center justify-center p-4">
+  return <div className="min-h-screen bg-gradient-to-br from-slate-400 to-slate-600 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-sm mx-auto space-y-6">
         {/* Header Section */}
         <div className="text-center">
@@ -81,7 +80,7 @@ export const ParentLogin = ({
           </div>
           <h1 className="text-white text-xl font-bold mb-2">WAFA PRE SCHOOL</h1>
           <p className="text-white/80 text-base">FEE MANAGEMENT SYSTEM</p>
-          <p className="text-white/70 text-sm mt-1">{currentYear}</p>
+          
         </div>
 
         {/* Login Form */}
@@ -125,6 +124,5 @@ export const ParentLogin = ({
           </CardContent>
         </Card>
       </div>
-    </div>
-  );
+    </div>;
 };
