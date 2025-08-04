@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Lock, User, Heart, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useIsMobile } from "@/hooks/use-mobile";
+
 interface ParentLoginProps {
   onLogin: (userData: {
     id: string;
@@ -15,51 +17,79 @@ interface ParentLoginProps {
   }) => void;
   onBack: () => void;
 }
+
 export const ParentLogin = ({
   onLogin,
   onBack
 }: ParentLoginProps) => {
   const [studentId, setStudentId] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
+  const isMobile = useIsMobile();
   const currentYear = new Date().getFullYear();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
     try {
-      const {
-        data: students,
-        error
-      } = await supabase.from('students').select('*').eq('student_id', studentId).eq('password', password);
-      if (error) {
-        console.error('Database error:', error);
+      console.log('Attempting login with:', { studentId, password });
+      
+      // First, let's check if the student exists
+      const { data: studentCheck, error: studentError } = await supabase
+        .from('students')
+        .select('*')
+        .eq('student_id', studentId);
+
+      if (studentError) {
+        console.error('Student check error:', studentError);
         toast({
-          title: "Login Error",
-          description: "Database connection failed. Please try again.",
+          title: "Database Error",
+          description: "Error checking student record. Please try again.",
           variant: "destructive"
         });
-      } else if (!students || students.length === 0) {
+        return;
+      }
+
+      console.log('Student check result:', studentCheck);
+
+      if (!studentCheck || studentCheck.length === 0) {
         toast({
           title: "Login Failed",
-          description: "Invalid student ID or password. Please check your credentials.",
+          description: "Student ID not found. Please check your credentials.",
           variant: "destructive"
         });
-      } else {
-        const student = students[0];
-        onLogin({
-          id: student.id,
-          name: `Parent of ${student.full_name}`,
-          type: 'parent'
-        });
-        toast({
-          title: "Login Successful",
-          description: `Welcome! You can manage fees for ${student.full_name}`
-        });
+        return;
       }
+
+      const student = studentCheck[0];
+      console.log('Found student:', student);
+
+      // Now check the password
+      if (student.password !== password) {
+        toast({
+          title: "Login Failed",
+          description: "Invalid password. Please check your credentials.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Login successful
+      onLogin({
+        id: student.id,
+        name: `Parent of ${student.full_name}`,
+        type: 'parent'
+      });
+      
+      toast({
+        title: "Login Successful",
+        description: `Welcome! You can manage fees for ${student.full_name}`
+      });
+
     } catch (error) {
       console.error('Login error:', error);
       toast({
@@ -71,58 +101,157 @@ export const ParentLogin = ({
       setIsLoading(false);
     }
   };
-  return <div className="min-h-screen bg-gradient-to-br from-slate-400 to-slate-600 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-sm mx-auto space-y-6">
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+      <div className="w-full max-w-md mx-auto space-y-8">
         {/* Header Section */}
-        <div className="text-center">
-          <div className="w-20 h-20 bg-white rounded-full mx-auto mb-4 flex items-center justify-center p-3">
-            <img src="/lovable-uploads/da3b5ef5-9d2d-4940-8fb9-26e2bfc05b93.png" alt="Wafa Pre School Logo" className="w-full h-full object-contain" />
+        <div className="text-center space-y-4">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white rounded-full mx-auto flex items-center justify-center shadow-2xl">
+            <img 
+              src="/lovable-uploads/da3b5ef5-9d2d-4940-8fb9-26e2bfc05b93.png" 
+              alt="Wafa Pre School Logo" 
+              className="w-16 h-16 sm:w-20 sm:h-20 object-contain" 
+            />
           </div>
-          <h1 className="text-white text-xl font-bold mb-2">WAFA PRE SCHOOL</h1>
-          <p className="text-white/80 text-base">FEE MANAGEMENT SYSTEM</p>
-          
+          <div className="space-y-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+              WAFA PRE SCHOOL
+            </h1>
+            <p className="text-gray-700 text-base sm:text-lg font-medium">
+              FEE MANAGEMENT SYSTEM
+            </p>
+            <div className="flex items-center justify-center space-x-2 text-gray-600">
+              <Heart className="h-4 w-4" />
+              <span className="text-sm">Parent Portal Access</span>
+            </div>
+          </div>
         </div>
 
         {/* Login Form */}
-        <Card className="bg-white shadow-xl">
-          <CardHeader className="pb-4 pt-6">
-            <Button variant="ghost" size="sm" onClick={onBack} className="self-start -ml-2 mb-2 text-sm">
+        <Card className="bg-white/95 backdrop-blur-sm shadow-2xl border-0">
+          <CardHeader className="pb-6 pt-8">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onBack} 
+              className="self-start -ml-2 mb-4 text-gray-600 hover:text-gray-900 transition-colors"
+            >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Back
+              {isMobile ? 'Back' : 'Go Back'}
             </Button>
-            <div className="text-center">
-              <h2 className="text-xl font-semibold text-slate-700">Parent Login</h2>
+            <div className="text-center space-y-2">
+              <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">
+                Parent Login
+              </h2>
+              <p className="text-gray-600 text-sm">
+                Access your child's fee information
+              </p>
             </div>
           </CardHeader>
           
-          <CardContent className="space-y-4 px-6 pb-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
+          <CardContent className="space-y-6 px-6 pb-8">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="studentId" className="text-slate-600">Student ID</Label>
-                <Input id="studentId" type="text" placeholder="Student ID" value={studentId} onChange={e => setStudentId(e.target.value)} required className="h-11 bg-slate-50" />
+                <Label htmlFor="studentId" className="text-sm font-medium text-gray-700">
+                  Student ID
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input 
+                    id="studentId" 
+                    type="text" 
+                    placeholder="Enter student ID" 
+                    value={studentId} 
+                    onChange={e => setStudentId(e.target.value)} 
+                    required 
+                    className="pl-10 h-12 bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200" 
+                  />
+                </div>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-600">Password</Label>
-                <Input id="password" type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required className="h-11 bg-slate-50" />
+                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                  Password
+                </Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input 
+                    id="password" 
+                    type={showPassword ? "text" : "password"} 
+                    placeholder="Enter password" 
+                    value={password} 
+                    onChange={e => setPassword(e.target.value)} 
+                    required 
+                    className="pl-10 pr-10 h-12 bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200" 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <Checkbox id="remember" checked={rememberMe} onCheckedChange={checked => setRememberMe(checked as boolean)} />
-                  <Label htmlFor="remember" className="text-slate-600 text-sm">Remember me</Label>
+                  <Checkbox 
+                    id="remember" 
+                    checked={rememberMe} 
+                    onCheckedChange={checked => setRememberMe(checked as boolean)} 
+                  />
+                  <Label htmlFor="remember" className="text-sm text-gray-600">
+                    Remember me
+                  </Label>
                 </div>
-                <Button variant="link" className="text-slate-600 p-0 h-auto text-sm">
-                  Forget Password
+                <Button 
+                  variant="link" 
+                  className="text-green-600 hover:text-green-700 p-0 h-auto text-sm font-medium"
+                >
+                  Forgot Password?
                 </Button>
               </div>
 
-              <Button type="submit" className="w-full h-11 bg-slate-600 hover:bg-slate-700 text-white font-semibold" disabled={isLoading}>
-                {isLoading ? "Signing in..." : "Login"}
+              <Button 
+                type="submit" 
+                className="w-full h-12 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]" 
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Signing in...
+                  </div>
+                ) : (
+                  "Login"
+                )}
               </Button>
             </form>
+
+            {/* Demo Credentials Section */}
+            <div className="text-center pt-4 border-t border-gray-200 space-y-2">
+              <div className="text-xs text-gray-600 bg-green-50 p-3 rounded-lg border border-green-200">
+                <p className="font-medium mb-1 text-green-800">Demo Credentials:</p>
+                <p>Student ID: <span className="font-mono bg-green-100 px-1 rounded">STU001</span></p>
+                <p>Password: <span className="font-mono bg-green-100 px-1 rounded">pass123</span></p>
+              </div>
+              <p className="text-xs text-gray-500">
+                <HelpCircle className="inline h-3 w-3 mr-1" />
+                Need help? Contact the school office
+              </p>
+              <p className="text-xs text-gray-400">
+                Academic Year {currentYear}
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
-    </div>;
+    </div>
+  );
 };
