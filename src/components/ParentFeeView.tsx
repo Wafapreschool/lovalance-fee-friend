@@ -6,13 +6,11 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { CalendarDays, CreditCard, Clock, CheckCircle, ExternalLink, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
 interface SchoolYear {
   id: string;
   year: number;
   is_active: boolean;
 }
-
 interface SchoolMonth {
   id: string;
   school_year_id: string;
@@ -21,7 +19,6 @@ interface SchoolMonth {
   due_date: string;
   is_active: boolean;
 }
-
 interface StudentFee {
   id: string;
   school_month_id: string;
@@ -32,110 +29,90 @@ interface StudentFee {
   transaction_id: string | null;
   school_months: SchoolMonth;
 }
-
 interface Student {
   id: string;
   full_name: string;
   class_name: string;
   student_id: string;
 }
-
 interface ParentFeeViewProps {
-  currentUser?: { id: string; name: string; type: string } | null;
+  currentUser?: {
+    id: string;
+    name: string;
+    type: string;
+  } | null;
 }
-
-export const ParentFeeView = ({ currentUser }: ParentFeeViewProps = {}) => {
+export const ParentFeeView = ({
+  currentUser
+}: ParentFeeViewProps = {}) => {
   const [schoolYears, setSchoolYears] = useState<SchoolYear[]>([]);
   const [schoolMonths, setSchoolMonths] = useState<SchoolMonth[]>([]);
   const [studentFees, setStudentFees] = useState<StudentFee[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     fetchFeeData();
-    
-    // Set up real-time subscription for fee updates
-    const channel = supabase
-      .channel('fee-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'student_fees'
-        },
-        () => {
-          fetchFeeData();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'school_months'
-        },
-        () => {
-          fetchFeeData();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'school_years'
-        },
-        () => {
-          fetchFeeData();
-        }
-      )
-      .subscribe();
 
+    // Set up real-time subscription for fee updates
+    const channel = supabase.channel('fee-updates').on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'student_fees'
+    }, () => {
+      fetchFeeData();
+    }).on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'school_months'
+    }, () => {
+      fetchFeeData();
+    }).on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'school_years'
+    }, () => {
+      fetchFeeData();
+    }).subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, []);
-
   const fetchFeeData = async () => {
     try {
       // Fetch school years
-      const { data: yearsData, error: yearsError } = await supabase
-        .from('school_years')
-        .select('*')
-        .order('year', { ascending: false });
-
+      const {
+        data: yearsData,
+        error: yearsError
+      } = await supabase.from('school_years').select('*').order('year', {
+        ascending: false
+      });
       if (yearsError) throw yearsError;
 
       // Fetch school months
-      const { data: monthsData, error: monthsError } = await supabase
-        .from('school_months')
-        .select('*')
-        .order('month_number');
-
+      const {
+        data: monthsData,
+        error: monthsError
+      } = await supabase.from('school_months').select('*').order('month_number');
       if (monthsError) throw monthsError;
 
       // Fetch only current user's student data
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select('*')
-        .eq('id', currentUser?.id)
-        .order('full_name');
-
+      const {
+        data: studentsData,
+        error: studentsError
+      } = await supabase.from('students').select('*').eq('id', currentUser?.id).order('full_name');
       if (studentsError) throw studentsError;
 
       // Fetch student fees with month details - only for current user
-      const { data: feesData, error: feesError } = await supabase
-        .from('student_fees')
-        .select(`
+      const {
+        data: feesData,
+        error: feesError
+      } = await supabase.from('student_fees').select(`
           *,
           school_months (*)
-        `)
-        .eq('student_id', currentUser?.id)
-        .order('created_at', { ascending: false });
-
+        `).eq('student_id', currentUser?.id).order('created_at', {
+        ascending: false
+      });
       if (feesError) throw feesError;
-
       setSchoolYears(yearsData || []);
       setSchoolMonths(monthsData || []);
       setStudents(studentsData || []);
@@ -150,10 +127,8 @@ export const ParentFeeView = ({ currentUser }: ParentFeeViewProps = {}) => {
       setLoading(false);
     }
   };
-
   const getStatusBadge = (status: string, dueDate: string) => {
     const isOverdue = new Date(dueDate) < new Date() && status === 'pending';
-    
     if (status === 'paid') {
       return <Badge variant="default" className="bg-success text-success-foreground">
         <CheckCircle className="h-3 w-3 mr-1" />
@@ -171,70 +146,51 @@ export const ParentFeeView = ({ currentUser }: ParentFeeViewProps = {}) => {
       </Badge>;
     }
   };
-
   const handlePayment = async (feeId: string, studentName: string, month: string, amount: number) => {
     try {
       // Show loading toast
       const loadingToast = toast.loading(`Redirecting to BML Gateway for ${month} payment...`);
-      
+
       // In a real implementation, this would:
       // 1. Create a payment session with BML Gateway
       // 2. Include the student_fee_id in the payment reference
       // 3. Redirect to BML payment page
       // 4. Handle the webhook response to update payment status
-      
+
       // For now, simulate the redirect
       setTimeout(() => {
         toast.dismiss(loadingToast);
         toast.success(`Payment gateway opened for ${studentName} - ${month} (MVR ${amount.toLocaleString()})`);
         console.log("BML Gateway integration - Fee ID:", feeId);
       }, 1500);
-      
     } catch (error) {
       console.error('Payment error:', error);
       toast.error("Failed to initiate payment. Please try again.");
     }
   };
-
   const getFeesForYearAndStudent = (yearId: string, studentId: string) => {
-    return studentFees.filter(fee => 
-      fee.school_months.school_year_id === yearId && fee.student_id === studentId
-    );
+    return studentFees.filter(fee => fee.school_months.school_year_id === yearId && fee.student_id === studentId);
   };
-
   const getMonthsForYear = (yearId: string) => {
-    return schoolMonths.filter(month => month.school_year_id === yearId)
-      .sort((a, b) => a.month_number - b.month_number);
+    return schoolMonths.filter(month => month.school_year_id === yearId).sort((a, b) => a.month_number - b.month_number);
   };
-
   const getTotalPendingAmount = () => {
-    return studentFees
-      .filter(fee => fee.status === 'pending' && fee.student_id === currentUser?.id)
-      .reduce((sum, fee) => sum + fee.amount, 0);
+    return studentFees.filter(fee => fee.status === 'pending' && fee.student_id === currentUser?.id).reduce((sum, fee) => sum + fee.amount, 0);
   };
-
   const getPaidFeesCount = () => {
     return studentFees.filter(fee => fee.status === 'paid' && fee.student_id === currentUser?.id).length;
   };
-
   const getPendingFeesCount = () => {
     return studentFees.filter(fee => fee.status === 'pending' && fee.student_id === currentUser?.id).length;
   };
-
   if (loading) {
-    return (
-      <div className="space-y-4">
+    return <div className="space-y-4">
         <div className="animate-pulse space-y-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 bg-muted rounded"></div>
-          ))}
+          {[1, 2, 3].map(i => <div key={i} className="h-32 bg-muted rounded"></div>)}
         </div>
-      </div>
-    );
+      </div>;
   }
-
-  return (
-    <div className="space-y-6">
+  return <div className="space-y-6">
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold">Fee Payment Portal</h2>
@@ -279,8 +235,7 @@ export const ParentFeeView = ({ currentUser }: ParentFeeViewProps = {}) => {
 
       {/* Students and Fees */}
       <div className="space-y-6">
-        {students.map((student) => (
-          <Card key={student.id} className="border-l-4 border-l-primary">
+        {students.map(student => <Card key={student.id} className="border-l-4 border-l-primary">
             <CardHeader>
               <div className="flex justify-between items-center">
                 <div>
@@ -297,26 +252,21 @@ export const ParentFeeView = ({ currentUser }: ParentFeeViewProps = {}) => {
             
             <CardContent>
               <Accordion type="single" collapsible className="w-full">
-                {schoolYears.map((year) => {
-                  const studentFeesForYear = getFeesForYearAndStudent(year.id, student.id);
-                  const monthsForYear = getMonthsForYear(year.id);
-                  
-                  if (monthsForYear.length === 0) return null;
-
-                  return (
-                    <AccordionItem key={year.id} value={year.id}>
+                {schoolYears.map(year => {
+              const studentFeesForYear = getFeesForYearAndStudent(year.id, student.id);
+              const monthsForYear = getMonthsForYear(year.id);
+              if (monthsForYear.length === 0) return null;
+              return <AccordionItem key={year.id} value={year.id}>
                       <AccordionTrigger className="text-lg font-semibold">
                         Academic Year {year.year}
                         {year.is_active && <Badge variant="default" className="ml-2">Current</Badge>}
                       </AccordionTrigger>
                       <AccordionContent>
                         <div className="grid gap-4">
-                          {monthsForYear.map((month) => {
-                            const fee = studentFeesForYear.find(f => f.school_month_id === month.id);
-                            
-                            if (!fee) {
-                              return (
-                                <div key={month.id} className="p-4 border rounded-lg bg-muted/30">
+                          {monthsForYear.map(month => {
+                      const fee = studentFeesForYear.find(f => f.school_month_id === month.id);
+                      if (!fee) {
+                        return <div key={month.id} className="p-4 border rounded-lg bg-muted/30">
                                   <div className="flex justify-between items-center">
                                     <div>
                                       <h4 className="font-medium">{month.month_name}</h4>
@@ -326,13 +276,10 @@ export const ParentFeeView = ({ currentUser }: ParentFeeViewProps = {}) => {
                                     </div>
                                     <Badge variant="outline">Not Available</Badge>
                                   </div>
-                                </div>
-                              );
-                            }
-
-                            return (
-                              <div key={fee.id} className="p-4 border rounded-lg bg-background">
-                                <div className="flex justify-between items-center">
+                                </div>;
+                      }
+                      return <div key={fee.id} className="p-4 border bg-background rounded">
+                                <div className="flex justify-between items-center rounded-sm">
                                   <div className="flex-1">
                                     <div className="flex items-center gap-3 mb-2">
                                       <h4 className="font-medium">{month.month_name}</h4>
@@ -341,67 +288,43 @@ export const ParentFeeView = ({ currentUser }: ParentFeeViewProps = {}) => {
                                     <div className="text-sm text-muted-foreground space-y-1">
                                       <p>Amount: MVR {fee.amount.toLocaleString()}</p>
                                       <p>Due Date: {new Date(month.due_date).toLocaleDateString()}</p>
-                                      {fee.payment_date && (
-                                        <p>Paid: {new Date(fee.payment_date).toLocaleDateString()}</p>
-                                      )}
-                                      {fee.transaction_id && (
-                                        <p>Transaction ID: {fee.transaction_id}</p>
-                                      )}
+                                      {fee.payment_date && <p>Paid: {new Date(fee.payment_date).toLocaleDateString()}</p>}
+                                      {fee.transaction_id && <p>Transaction ID: {fee.transaction_id}</p>}
                                     </div>
                                   </div>
                                   
                                   <div className="ml-4">
-                                    {fee.status === 'pending' && (
-                                      <Button
-                                        onClick={() => handlePayment(fee.id, student.full_name, month.month_name, fee.amount)}
-                                        variant="gradient"
-                                        className="flex items-center gap-2"
-                                      >
+                                    {fee.status === 'pending' && <Button onClick={() => handlePayment(fee.id, student.full_name, month.month_name, fee.amount)} variant="gradient" className="flex items-center gap-2">
                                         <CreditCard className="h-4 w-4" />
                                         Pay Now
                                         <ExternalLink className="h-3 w-3" />
-                                      </Button>
-                                    )}
-                                    {fee.status === 'overdue' && (
-                                      <Button
-                                        onClick={() => handlePayment(fee.id, student.full_name, month.month_name, fee.amount)}
-                                        variant="destructive"
-                                        className="flex items-center gap-2"
-                                      >
+                                      </Button>}
+                                    {fee.status === 'overdue' && <Button onClick={() => handlePayment(fee.id, student.full_name, month.month_name, fee.amount)} variant="destructive" className="flex items-center gap-2">
                                         <AlertCircle className="h-4 w-4" />
                                         Pay Overdue
                                         <ExternalLink className="h-3 w-3" />
-                                      </Button>
-                                    )}
-                                    {fee.status === 'paid' && (
-                                      <div className="text-success font-medium flex items-center gap-2">
+                                      </Button>}
+                                    {fee.status === 'paid' && <div className="text-success font-medium flex items-center gap-2">
                                         <CheckCircle className="h-4 w-4" />
                                         Paid
-                                      </div>
-                                    )}
+                                      </div>}
                                   </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              </div>;
+                    })}
                         </div>
                       </AccordionContent>
-                    </AccordionItem>
-                  );
-                })}
+                    </AccordionItem>;
+            })}
               </Accordion>
             </CardContent>
-          </Card>
-        ))}
+          </Card>)}
       </div>
 
-      {students.length === 0 && (
-        <div className="text-center py-12">
+      {students.length === 0 && <div className="text-center py-12">
           <CalendarDays className="h-16 w-16 mx-auto mb-6 text-muted-foreground opacity-50" />
           <h3 className="text-lg font-medium mb-2">No Students Found</h3>
           <p className="text-muted-foreground">Contact the school to register your children</p>
-        </div>
-      )}
-    </div>
-  );
+        </div>}
+    </div>;
 };
