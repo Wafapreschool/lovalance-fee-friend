@@ -240,9 +240,9 @@ export const ParentDashboard = ({
               </CardTitle>
               <CardDescription>Your last few payments across all children</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="bg-blue-100">
               <div className="space-y-3">
-                {paymentHistory.length > 0 ? paymentHistory.slice(0, 5).map((payment, index) => <div key={index} className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+                {paymentHistory.length > 0 ? paymentHistory.slice(0, 5).map((payment, index) => <div key={index} className="flex items-center justify-between p-3 rounded-lg border">
                       <div className="flex items-center gap-3">
                         <div className="p-2 rounded-full bg-success/10">
                           <CheckCircle className="h-4 w-4 text-success" />
