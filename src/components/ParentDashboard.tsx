@@ -192,14 +192,31 @@ export const ParentDashboard = ({
       </div>
 
       {/* Tabs for Overview and Fee Management */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 h-auto">
-          <TabsTrigger value="overview" className="text-sm py-3">Overview</TabsTrigger>
-          <TabsTrigger value="fees" className="text-sm py-3">
-            <CalendarDays className="h-4 w-4 mr-2" />
-            Fee Management
-          </TabsTrigger>
-        </TabsList>
+      <div>
+  {/* Welcome Message */}
+  <div className="text-center text-lg font-semibold text-gray-700 mb-4">
+    Welcome to WAFA Preschool Monthly Fee Management Portal
+  </div>
+
+  {/* Tabs Component */}
+  <Tabs defaultValue="overview" className="space-y-6">
+    <TabsList className="grid w-full grid-cols-2 h-auto">
+      <TabsTrigger 
+        value="overview" 
+        className="text-sm py-3 bg-blue-100 text-blue-800 hover:bg-blue-200"
+      >
+        Overview
+      </TabsTrigger>
+      <TabsTrigger 
+        value="fees" 
+        className="text-sm py-3 bg-blue-100 text-blue-800 hover:bg-blue-200"
+      >
+        <CalendarDays className="h-4 w-4 mr-2" />
+        Fee Management
+      </TabsTrigger>
+    </TabsList>
+  </Tabs>
+</div>
 
         <TabsContent value="overview" className="space-y-4">
           {/* Student Cards */}
