@@ -196,13 +196,13 @@ export const ParentDashboard = ({
         <TabsList className="grid w-full grid-cols-2 h-auto">
           <TabsTrigger 
             value="overview" 
-            className="text-sm py-3 bg-blue-100 text-blue-800 hover:bg-blue-200"
+            className="text-sm py-3 bg-blue-100 text-blue-800 hover:bg-orange-400 hover:text-white"
           >
             Overview
           </TabsTrigger>
           <TabsTrigger 
             value="fees" 
-            className="text-sm py-3 bg-blue-100 text-blue-800 hover:bg-blue-200"
+            className="text-sm py-3 bg-blue-100 text-blue-800 hover:bg-orange-400 hover:text-white"
           >
             <CalendarDays className="h-4 w-4 mr-2" />
             Fee Management
