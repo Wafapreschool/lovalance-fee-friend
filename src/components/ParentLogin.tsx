@@ -8,7 +8,6 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Eye, EyeOff, Lock, User, Heart, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
-
 interface ParentLoginProps {
   onLogin: (userData: {
     id: string;
@@ -17,7 +16,6 @@ interface ParentLoginProps {
   }) => void;
   onBack: () => void;
 }
-
 export const ParentLogin = ({
   onLogin,
   onBack
@@ -27,23 +25,25 @@ export const ParentLogin = ({
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const isMobile = useIsMobile();
   const currentYear = new Date().getFullYear();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
     try {
-      console.log('Attempting login with:', { studentId, password });
-      
-      // First, let's check if the student exists
-      const { data: studentCheck, error: studentError } = await supabase
-        .from('students')
-        .select('*')
-        .eq('student_id', studentId);
+      console.log('Attempting login with:', {
+        studentId,
+        password
+      });
 
+      // First, let's check if the student exists
+      const {
+        data: studentCheck,
+        error: studentError
+      } = await supabase.from('students').select('*').eq('student_id', studentId);
       if (studentError) {
         console.error('Student check error:', studentError);
         toast({
@@ -53,9 +53,7 @@ export const ParentLogin = ({
         });
         return;
       }
-
       console.log('Student check result:', studentCheck);
-
       if (!studentCheck || studentCheck.length === 0) {
         toast({
           title: "Login Failed",
@@ -64,7 +62,6 @@ export const ParentLogin = ({
         });
         return;
       }
-
       const student = studentCheck[0];
       console.log('Found student:', student);
 
@@ -84,12 +81,10 @@ export const ParentLogin = ({
         name: `Parent of ${student.full_name}`,
         type: 'parent'
       });
-      
       toast({
         title: "Login Successful",
         description: `Welcome! You can manage fees for ${student.full_name}`
       });
-
     } catch (error) {
       console.error('Login error:', error);
       toast({
@@ -101,18 +96,12 @@ export const ParentLogin = ({
       setIsLoading(false);
     }
   };
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
+  return <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8">
       <div className="w-full max-w-md mx-auto space-y-8">
         {/* Header Section */}
         <div className="text-center space-y-4">
           <div className="w-20 h-20 sm:w-24 sm:h-24 bg-white rounded-full mx-auto flex items-center justify-center shadow-2xl">
-            <img 
-              src="/lovable-uploads/da3b5ef5-9d2d-4940-8fb9-26e2bfc05b93.png" 
-              alt="Wafa Pre School Logo" 
-              className="w-16 h-16 sm:w-20 sm:h-20 object-contain" 
-            />
+            <img src="/lovable-uploads/da3b5ef5-9d2d-4940-8fb9-26e2bfc05b93.png" alt="Wafa Pre School Logo" className="w-16 h-16 sm:w-20 sm:h-20 object-contain" />
           </div>
           <div className="space-y-2">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
@@ -131,12 +120,7 @@ export const ParentLogin = ({
         {/* Login Form */}
         <Card className="bg-white/95 backdrop-blur-sm shadow-2xl border-0">
           <CardHeader className="pb-6 pt-8">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={onBack} 
-              className="self-start -ml-2 mb-4 text-gray-600 hover:text-gray-900 transition-colors"
-            >
+            <Button variant="ghost" size="sm" onClick={onBack} className="self-start -ml-2 mb-4 text-gray-600 hover:text-gray-900 transition-colors">
               <ArrowLeft className="h-4 w-4 mr-2" />
               {isMobile ? 'Back' : 'Go Back'}
             </Button>
@@ -158,15 +142,7 @@ export const ParentLogin = ({
                 </Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input 
-                    id="studentId" 
-                    type="text" 
-                    placeholder="Enter student ID" 
-                    value={studentId} 
-                    onChange={e => setStudentId(e.target.value)} 
-                    required 
-                    className="pl-10 h-12 bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200" 
-                  />
+                  <Input id="studentId" type="text" placeholder="Enter student ID" value={studentId} onChange={e => setStudentId(e.target.value)} required className="pl-10 h-12 bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200" />
                 </div>
               </div>
               
@@ -176,71 +152,36 @@ export const ParentLogin = ({
                 </Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input 
-                    id="password" 
-                    type={showPassword ? "text" : "password"} 
-                    placeholder="Enter password" 
-                    value={password} 
-                    onChange={e => setPassword(e.target.value)} 
-                    required 
-                    className="pl-10 pr-10 h-12 bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200" 
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                  <Input id="password" type={showPassword ? "text" : "password"} placeholder="Enter password" value={password} onChange={e => setPassword(e.target.value)} required className="pl-10 pr-10 h-12 bg-gray-50 border-gray-200 focus:border-green-500 focus:ring-green-500 transition-all duration-200" />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors">
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
 
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="remember" 
-                    checked={rememberMe} 
-                    onCheckedChange={checked => setRememberMe(checked as boolean)} 
-                  />
+                  <Checkbox id="remember" checked={rememberMe} onCheckedChange={checked => setRememberMe(checked as boolean)} />
                   <Label htmlFor="remember" className="text-sm text-gray-600">
                     Remember me
                   </Label>
                 </div>
-                <Button 
-                  variant="link" 
-                  className="text-green-600 hover:text-green-700 p-0 h-auto text-sm font-medium"
-                >
+                <Button variant="link" className="text-green-600 hover:text-green-700 p-0 h-auto text-sm font-medium">
                   Forgot Password?
                 </Button>
               </div>
 
-              <Button 
-                type="submit" 
-                className="w-full h-12 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]" 
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <div className="flex items-center justify-center">
+              <Button type="submit" className="w-full h-12 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]" disabled={isLoading}>
+                {isLoading ? <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Signing in...
-                  </div>
-                ) : (
-                  "Login"
-                )}
+                  </div> : "Login"}
               </Button>
             </form>
 
             {/* Demo Credentials Section */}
             <div className="text-center pt-4 border-t border-gray-200 space-y-2">
-              <div className="text-xs text-gray-600 bg-green-50 p-3 rounded-lg border border-green-200">
-                <p className="font-medium mb-1 text-green-800">Demo Credentials:</p>
-                <p>Student ID: <span className="font-mono bg-green-100 px-1 rounded">STU001</span></p>
-                <p>Password: <span className="font-mono bg-green-100 px-1 rounded">pass123</span></p>
-              </div>
+              
               <p className="text-xs text-gray-500">
                 <HelpCircle className="inline h-3 w-3 mr-1" />
                 Need help? Contact the school office
@@ -252,6 +193,5 @@ export const ParentLogin = ({
           </CardContent>
         </Card>
       </div>
-    </div>
-  );
+    </div>;
 };
