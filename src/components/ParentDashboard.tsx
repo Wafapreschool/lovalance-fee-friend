@@ -5,9 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentCard, Student } from "./StudentCard";
 import { ParentFeeView } from "./ParentFeeView";
 import { PasswordChangeDialog } from "./PasswordChangeDialog";
+import { DashboardSidebar } from "./DashboardSidebar";
 import { toast } from "sonner";
 import { CreditCard, Clock, CheckCircle, AlertCircle, CalendarDays, User, Key, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+
 interface PaymentHistory {
   month: string;
   year: number;
@@ -16,6 +18,7 @@ interface PaymentHistory {
   paidDate?: string;
   transactionId?: string;
 }
+
 interface ParentDashboardProps {
   currentUser?: {
     id: string;
@@ -23,25 +26,31 @@ interface ParentDashboardProps {
     type: string;
   } | null;
 }
+
 export const ParentDashboard = ({
   currentUser
 }: ParentDashboardProps = {}) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('overview');
 
-  // Redirect if not authenticated (use currentUser instead of Supabase auth user)
+  // Redirect if not authenticated
   if (!currentUser) {
-    return <div className="container mx-auto py-6">
+    return (
+      <div className="container mx-auto py-6">
         <Card className="max-w-md mx-auto">
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>Please login as a parent to access this dashboard.</CardDescription>
           </CardHeader>
         </Card>
-      </div>;
+      </div>
+    );
   }
+
   const totalDue = students.filter(s => s.currentFee.status === 'pending').reduce((sum, s) => sum + s.currentFee.amount, 0);
+
   const fetchStudentsData = async () => {
     try {
       // Filter by current user - only show their children
@@ -108,6 +117,7 @@ export const ParentDashboard = ({
       setLoading(false);
     }
   };
+
   useEffect(() => {
     fetchStudentsData();
 
@@ -142,6 +152,7 @@ export const ParentDashboard = ({
       supabase.removeChannel(schoolMonthsChannel);
     };
   }, []);
+
   const handlePayFee = (studentId: string) => {
     const student = students.find(s => s.id === studentId);
     if (student) {
@@ -149,6 +160,7 @@ export const ParentDashboard = ({
       console.log("Initiating payment for student:", studentId);
     }
   };
+
   const handleViewHistory = (studentId: string) => {
     const student = students.find(s => s.id === studentId);
     if (student) {
@@ -156,118 +168,138 @@ export const ParentDashboard = ({
       console.log("View history for student:", studentId);
     }
   };
+
   const handleLogout = async () => {
-    // Since we're using local auth, just redirect to home page
     window.location.href = '/';
     toast.success("Signed out successfully");
   };
-  return <div className="container mx-auto py-6 space-y-6">
-      {/* Welcome Section with Profile Actions */}
-      <div className="flex justify-between items-start">
-        <div className="space-y-2">
-          
-          
-        </div>
-        <div className="flex gap-2">
-          <PasswordChangeDialog>
-            <Button variant="outline" size="sm">
-              <Key className="h-4 w-4 mr-2" />
-              Change Password
-            </Button>
-          </PasswordChangeDialog>
-          <Button variant="outline" size="sm" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
-        </div>
-      </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        
-
-        
-
-        
-      </div>
-
-      {/* Tabs for Overview and Fee Management */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2 h-auto">
-          <TabsTrigger 
-            value="overview" 
-            className="text-sm py-3 bg-blue-100 text-blue-800 hover:bg-orange-400 hover:text-white"
-          >
-            Overview
-          </TabsTrigger>
-          <TabsTrigger 
-            value="fees" 
-            className="text-sm py-3 bg-blue-100 text-blue-800 hover:bg-orange-400 hover:text-white"
-          >
-            <CalendarDays className="h-4 w-4 mr-2" />
-            Fee Management
-          </TabsTrigger>
-        </TabsList>
-        {/* Welcome Message */}
-        <div className="text-center text-lg font-semibold text-gray-700 mb-4">
-          Welcome to WAFA Preschool Monthly Fee Management Portal
-        </div>
-        <TabsContent value="overview" className="space-y-4">
-          {/* Student Cards */}
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="font-bold text-sm">Your Children</h2>
-              {totalDue > 0}
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'overview':
+        return (
+          <div className="space-y-6">
+            {/* Welcome Message */}
+            <div className="text-center text-lg font-semibold text-gray-700 mb-4">
+              Welcome to WAFA Preschool Monthly Fee Management Portal
             </div>
 
-            {loading ? <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {[1, 2].map(i => <div key={i} className="animate-pulse">
-                    <div className="bg-muted h-48 rounded-lg"></div>
-                  </div>)}
-              </div> : <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {students.length > 0 ? students.map(student => <StudentCard key={student.id} student={student} onPayFee={handlePayFee} onViewDetails={handleViewHistory} isParentView={true} />) : <div className="col-span-full text-center py-8">
-                    <p className="text-muted-foreground">No students found</p>
-                  </div>}
-              </div>}
-          </div>
-
-          {/* Payment History */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Recent Payment History
-              </CardTitle>
-              <CardDescription>Your last few payments across all children</CardDescription>
-            </CardHeader>
-            <CardContent className="bg-blue-100">
-              <div className="space-y-3">
-                {paymentHistory.length > 0 ? paymentHistory.slice(0, 5).map((payment, index) => <div key={index} className="flex items-center justify-between p-3 rounded-lg border">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-full bg-success/10">
-                          <CheckCircle className="h-4 w-4 text-success" />
-                        </div>
-                        <div>
-                          <p className="font-medium">{payment.month} {payment.year}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {payment.paidDate ? `Paid on ${payment.paidDate}` : 'Payment date not available'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold">MVR {payment.amount}</p>
-                        <p className="text-xs text-muted-foreground">{payment.transactionId || 'No transaction ID'}</p>
-                      </div>
-                    </div>) : <div className="text-center py-8">
-                    <p className="text-muted-foreground">No payment history found</p>
-                  </div>}
+            {/* Student Cards */}
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="font-bold text-lg">Your Children</h2>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="fees" className="space-y-4">
-          <ParentFeeView currentUser={currentUser} />
-        </TabsContent>
-      </Tabs>
-    </div>;
+
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {[1, 2].map(i => (
+                    <div key={i} className="animate-pulse">
+                      <div className="bg-muted h-48 rounded-lg"></div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {students.length > 0 ? (
+                    students.map(student => (
+                      <StudentCard
+                        key={student.id}
+                        student={student}
+                        onPayFee={handlePayFee}
+                        onViewDetails={handleViewHistory}
+                        isParentView={true}
+                      />
+                    ))
+                  ) : (
+                    <div className="col-span-full text-center py-8">
+                      <p className="text-muted-foreground">No students found</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Payment History */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5" />
+                  Recent Payment History
+                </CardTitle>
+                <CardDescription>Your last few payments across all children</CardDescription>
+              </CardHeader>
+              <CardContent className="bg-blue-100">
+                <div className="space-y-3">
+                  {paymentHistory.length > 0 ? (
+                    paymentHistory.slice(0, 5).map((payment, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 rounded-lg border">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-full bg-success/10">
+                            <CheckCircle className="h-4 w-4 text-success" />
+                          </div>
+                          <div>
+                            <p className="font-medium">{payment.month} {payment.year}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {payment.paidDate ? `Paid on ${payment.paidDate}` : 'Payment date not available'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold">MVR {payment.amount}</p>
+                          <p className="text-xs text-muted-foreground">{payment.transactionId || 'No transaction ID'}</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-muted-foreground">No payment history found</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      case 'fees':
+        return <ParentFeeView currentUser={currentUser} />;
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      <DashboardSidebar
+        userType="parent"
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onLogout={handleLogout}
+        userName={currentUser.name}
+      />
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900 ml-12 lg:ml-0">
+                WAFA Pre School - Parent Portal
+              </h1>
+              <p className="text-gray-600 ml-12 lg:ml-0">
+                Monitor your children's fees and payment history
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 overflow-auto p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            {renderTabContent()}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 };
