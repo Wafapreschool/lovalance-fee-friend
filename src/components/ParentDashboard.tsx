@@ -6,6 +6,7 @@ import { StudentCard, Student } from "./StudentCard";
 import { ParentFeeView } from "./ParentFeeView";
 import { PasswordChangeDialog } from "./PasswordChangeDialog";
 import { DashboardSidebar } from "./DashboardSidebar";
+import { DashboardFooter } from "./DashboardFooter";
 import { toast } from "sonner";
 import { CreditCard, Clock, CheckCircle, AlertCircle, CalendarDays, User, Key, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -299,6 +300,9 @@ export const ParentDashboard = ({
             {renderTabContent()}
           </div>
         </div>
+
+        {/* Footer */}
+        <DashboardFooter />
       </div>
     </div>
   );

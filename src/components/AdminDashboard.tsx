@@ -16,6 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Users, CreditCard, TrendingUp, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { DashboardFooter } from "./DashboardFooter";
 
 export const AdminDashboard = () => {
   const [students, setStudents] = useState<Student[]>([]);
@@ -186,7 +187,7 @@ export const AdminDashboard = () => {
         </div>
 
         {/* Stats Overview */}
-        <div className="p-6">
+        <div className="flex-1 overflow-auto p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <Card className="bg-gradient-card">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -238,6 +239,9 @@ export const AdminDashboard = () => {
             {renderTabContent()}
           </div>
         </div>
+
+        {/* Footer */}
+        <DashboardFooter />
       </div>
 
       <AddStudentForm
