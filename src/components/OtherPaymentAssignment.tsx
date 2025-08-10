@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CreditCard, Check, Edit, Trash2 } from "lucide-react";
+import { CreditCard, Check, Edit, Trash2, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -27,6 +27,8 @@ interface OtherPayment {
   amount: number;
   status: string;
   created_at: string;
+  payment_date?: string;
+  transaction_id?: string;
 }
 
 export const OtherPaymentAssignment = () => {
@@ -41,6 +43,7 @@ export const OtherPaymentAssignment = () => {
   const [editingPayment, setEditingPayment] = useState<OtherPayment | null>(null);
   const [editAmount, setEditAmount] = useState<string>("");
   const [editName, setEditName] = useState<string>("");
+  const [viewingStudent, setViewingStudent] = useState<string | null>(null);
 
   const fetchStudents = async () => {
     try {
@@ -301,6 +304,17 @@ export const OtherPaymentAssignment = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
+                            {studentPayments.length > 0 && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setViewingStudent(student.id)}
+                                className="h-8 px-3"
+                              >
+                                <Eye className="h-3 w-3 mr-1" />
+                                View ({studentPayments.length})
+                              </Button>
+                            )}
                             {studentPayments.map((payment) => (
                               <div key={payment.id} className="flex gap-1">
                                 <Button
@@ -390,6 +404,96 @@ export const OtherPaymentAssignment = () => {
                   <Button onClick={handleEditPayment}>
                     Update Payment
                   </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* View Student Payments Dialog */}
+        {viewingStudent && (
+          <Dialog open={!!viewingStudent} onOpenChange={(open) => !open && setViewingStudent(null)}>
+            <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                <DialogTitle>Other Payments - {students.find(s => s.id === viewingStudent)?.full_name}</DialogTitle>
+                <DialogDescription>
+                  View all other payments for this student
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Payment Name</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created Date</TableHead>
+                        <TableHead>Payment Date</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {getStudentPayments(viewingStudent).map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell className="font-medium">{payment.payment_name}</TableCell>
+                          <TableCell>MVR {payment.amount}</TableCell>
+                          <TableCell>
+                            <Badge variant={payment.status === 'paid' ? 'default' : 'secondary'}>
+                              {payment.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{new Date(payment.created_at).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            {payment.payment_date 
+                              ? new Date(payment.payment_date).toLocaleDateString() 
+                              : 'Not paid'
+                            }
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => startEditPayment(payment)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete Payment Assignment</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete the {payment.payment_name} assignment? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDeletePayment(payment.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               </div>
             </DialogContent>

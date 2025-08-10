@@ -8,6 +8,7 @@ import { ParentFeeView } from "./ParentFeeView";
 import { PasswordChangeDialog } from "./PasswordChangeDialog";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { DashboardFooter } from "./DashboardFooter";
+import { OtherPaymentView } from "./OtherPaymentView";
 import { toast } from "sonner";
 import { CreditCard, Clock, CheckCircle, AlertCircle, CalendarDays, User, Key, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -413,16 +414,23 @@ export const ParentDashboard = ({
                           <Card key={student.id} className="border-l-4 border-l-success">
                             <CardContent className="pt-6">
                               <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                  <CheckCircle className="h-5 w-5 text-success" />
-                                  <div>
-                                    <h3 className="font-semibold">{student.name}</h3>
-                                    <p className="text-sm text-muted-foreground">All fees up to date</p>
-                                  </div>
+                              <div className="flex items-center gap-3">
+                                <CheckCircle className="h-5 w-5 text-success" />
+                                <div>
+                                  <h3 className="font-semibold">{student.name}</h3>
+                                  <p className="text-sm text-muted-foreground">All fees up to date</p>
                                 </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <OtherPaymentView 
+                                  studentId={student.id}
+                                  studentName={student.name}
+                                  onPayment={handlePayOtherPayment}
+                                />
                                 <Badge variant="default" className="bg-success text-success-foreground">
                                   Paid Up
                                 </Badge>
+                              </div>
                               </div>
                             </CardContent>
                           </Card>
@@ -440,9 +448,16 @@ export const ParentDashboard = ({
                                  </CardTitle>
                                  <CardDescription>Class: {student.class}</CardDescription>
                               </div>
-                              <Badge variant="secondary" className="bg-warning text-warning-foreground">
-                                {unpaidFees.length} Unpaid
-                              </Badge>
+                              <div className="flex items-center gap-2">
+                                <OtherPaymentView 
+                                  studentId={student.id}
+                                  studentName={student.name}
+                                  onPayment={handlePayOtherPayment}
+                                />
+                                <Badge variant="secondary" className="bg-warning text-warning-foreground">
+                                  {unpaidFees.length} Unpaid
+                                </Badge>
+                              </div>
                             </div>
                           </CardHeader>
                           <CardContent>
