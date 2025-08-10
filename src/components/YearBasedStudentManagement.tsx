@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { ExcelStudentImport } from "./ExcelStudentImport";
 import { Users, Eye, Edit, Trash2, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -400,15 +401,21 @@ export const YearBasedStudentManagement = () => {
               <div className="text-sm text-muted-foreground">
                 {students.length} student{students.length !== 1 ? 's' : ''} found
               </div>
-              <Button 
-                variant="default" 
-                size="sm"
-                onClick={() => setShowAddForm(true)}
-                className="flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add Student
-              </Button>
+              <div className="flex gap-2">
+                <ExcelStudentImport 
+                  onStudentsImported={handleStudentAdded}
+                  defaultYear={selectedYear?.year}
+                />
+                <Button 
+                  variant="default" 
+                  size="sm"
+                  onClick={() => setShowAddForm(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Student
+                </Button>
+              </div>
             </div>
 
             {studentsLoading ? (
