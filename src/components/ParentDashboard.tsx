@@ -54,61 +54,112 @@ export const ParentDashboard = ({
 
   const fetchStudentsData = async () => {
     try {
-      // Filter by current user - only show their children
+      // First, get students data - assuming parent_phone matches current user identifier
       const {
         data: studentsData,
         error: studentsError
-      } = await supabase.from('students').select('*').eq('id', currentUser.id).order('created_at', {
-        ascending: false
-      });
+      } = await supabase
+        .from('students')
+        .select('*')
+        .eq('parent_phone', currentUser.id) // Assuming currentUser.id contains parent phone
+        .order('created_at', { ascending: false });
+
       if (studentsError) {
         console.error('Error fetching students:', studentsError);
         toast.error("Failed to load students");
         return;
       }
+
+      if (!studentsData || studentsData.length === 0) {
+        setStudents([]);
+        setPaymentHistory([]);
+        setLoading(false);
+        return;
+      }
+
+      // Get student IDs for fee queries
+      const studentIds = studentsData.map(s => s.id);
+
+      // Fetch actual fees from student_fees table with related data
       const {
         data: feesData,
         error: feesError
-      } = await supabase.from('fees').select('*').order('created_at', {
-        ascending: false
-      });
+      } = await supabase
+        .from('student_fees')
+        .select(`
+          *,
+          students!inner(
+            id,
+            full_name,
+            class_name
+          ),
+          school_months!inner(
+            month_name,
+            due_date,
+            school_years!inner(year)
+          )
+        `)
+        .in('student_id', studentIds)
+        .order('created_at', { ascending: false });
+
       if (feesError) {
         console.error('Error fetching fees:', feesError);
         toast.error("Failed to load fees");
         return;
       }
 
-      // Transform data to match Student interface
-      const transformedStudents: Student[] = (studentsData || []).map(student => {
-        const currentMonth = new Date().toLocaleString('default', {
-          month: 'long'
-        });
-        const currentYear = new Date().getFullYear();
-        const studentFee = feesData?.find(fee => fee.student_id === student.id && fee.month === currentMonth && fee.year === currentYear);
-        return {
-          id: student.id,
-          name: student.full_name,
-          class: student.class_name,
-          yearJoined: student.year_joined,
-          currentFee: {
-            month: currentMonth,
-            year: currentYear,
-            amount: studentFee?.amount || 3500,
-            status: studentFee?.status as "pending" | "paid" | "overdue" || "pending",
-            dueDate: studentFee?.due_date || new Date(currentYear, new Date().getMonth(), 15).toISOString().split('T')[0]
-          }
-        };
+      // Transform students data with their actual unpaid fees
+      const transformedStudents: Student[] = studentsData.map(student => {
+        // Find the most recent unpaid fee for this student
+        const unpaidFee = feesData?.find(fee => 
+          fee.student_id === student.id && 
+          (fee.status === 'pending' || fee.status === 'overdue')
+        );
+
+        if (unpaidFee) {
+          return {
+            id: student.id,
+            name: student.full_name,
+            class: student.class_name,
+            yearJoined: student.year_joined,
+            currentFee: {
+              month: unpaidFee.school_months.month_name,
+              year: unpaidFee.school_months.school_years.year,
+              amount: unpaidFee.amount,
+              status: unpaidFee.status as "pending" | "paid" | "overdue",
+              dueDate: unpaidFee.school_months.due_date
+            }
+          };
+        } else {
+          // No unpaid fees - show as paid up
+          return {
+            id: student.id,
+            name: student.full_name,
+            class: student.class_name,
+            yearJoined: student.year_joined,
+            currentFee: {
+              month: "All fees",
+              year: new Date().getFullYear(),
+              amount: 0,
+              status: "paid",
+              dueDate: new Date().toISOString().split('T')[0]
+            }
+          };
+        }
       });
 
-      // Transform fee history - only for current user's children
-      const transformedHistory: PaymentHistory[] = (feesData || []).filter(fee => fee.status === 'paid' && fee.student_id === currentUser.id).map(fee => ({
-        month: fee.month,
-        year: fee.year,
-        amount: fee.amount,
-        status: fee.status,
-        paidDate: fee.payment_date ? new Date(fee.payment_date).toLocaleDateString() : undefined,
-        transactionId: fee.transaction_id
-      }));
+      // Transform fee history - only paid fees for these students
+      const transformedHistory: PaymentHistory[] = (feesData || [])
+        .filter(fee => fee.status === 'paid')
+        .map(fee => ({
+          month: fee.school_months.month_name,
+          year: fee.school_months.school_years.year,
+          amount: fee.amount,
+          status: fee.status,
+          paidDate: fee.payment_date ? new Date(fee.payment_date).toLocaleDateString() : undefined,
+          transactionId: fee.transaction_id
+        }));
+
       setStudents(transformedStudents);
       setPaymentHistory(transformedHistory);
     } catch (error) {

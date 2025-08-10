@@ -95,21 +95,30 @@ export const ParentFeeView = ({
       } = await supabase.from('school_months').select('*').order('month_number');
       if (monthsError) throw monthsError;
 
-      // Fetch only current user's student data
+      // Fetch only current user's student data - using parent_phone
       const {
         data: studentsData,
         error: studentsError
-      } = await supabase.from('students').select('*').eq('id', currentUser?.id).order('full_name');
+      } = await supabase.from('students').select('*').eq('parent_phone', currentUser?.id).order('full_name');
       if (studentsError) throw studentsError;
 
-      // Fetch student fees with month details - only for current user
+      if (!studentsData || studentsData.length === 0) {
+        setStudents([]);
+        setStudentFees([]);
+        setLoading(false);
+        return;
+      }
+
+      const studentIds = studentsData.map(s => s.id);
+
+      // Fetch student fees with month details - only for current user's children
       const {
         data: feesData,
         error: feesError
       } = await supabase.from('student_fees').select(`
           *,
           school_months (*)
-        `).eq('student_id', currentUser?.id).order('created_at', {
+        `).in('student_id', studentIds).order('created_at', {
         ascending: false
       });
       if (feesError) throw feesError;
@@ -175,13 +184,16 @@ export const ParentFeeView = ({
     return schoolMonths.filter(month => month.school_year_id === yearId).sort((a, b) => a.month_number - b.month_number);
   };
   const getTotalPendingAmount = () => {
-    return studentFees.filter(fee => fee.status === 'pending' && fee.student_id === currentUser?.id).reduce((sum, fee) => sum + fee.amount, 0);
+    const studentIds = students.map(s => s.id);
+    return studentFees.filter(fee => fee.status === 'pending' && studentIds.includes(fee.student_id)).reduce((sum, fee) => sum + fee.amount, 0);
   };
   const getPaidFeesCount = () => {
-    return studentFees.filter(fee => fee.status === 'paid' && fee.student_id === currentUser?.id).length;
+    const studentIds = students.map(s => s.id);
+    return studentFees.filter(fee => fee.status === 'paid' && studentIds.includes(fee.student_id)).length;
   };
   const getPendingFeesCount = () => {
-    return studentFees.filter(fee => fee.status === 'pending' && fee.student_id === currentUser?.id).length;
+    const studentIds = students.map(s => s.id);
+    return studentFees.filter(fee => fee.status === 'pending' && studentIds.includes(fee.student_id)).length;
   };
   if (loading) {
     return <div className="space-y-4">
