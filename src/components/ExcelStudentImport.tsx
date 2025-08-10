@@ -127,28 +127,38 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
   };
 
   const generateStudentId = async (name: string, year: number): Promise<string> => {
-    const namePart = name.split(' ')[0].toLowerCase();
+    const namePart = name.split(' ')[0].toLowerCase().replace(/[^a-z]/g, '');
     let attempts = 0;
-    let studentId = '';
     
     // Try to generate a unique student ID
-    do {
-      const randomSuffix = Math.random().toString(36).substring(2, 6);
-      studentId = `${namePart}${year}${randomSuffix}`;
-      attempts++;
+    while (attempts < 20) {
+      const timestamp = Date.now().toString().slice(-4);
+      const randomSuffix = Math.random().toString(36).substring(2, 4);
+      const studentId = `${namePart}${year}${timestamp}${randomSuffix}`;
       
-      // Check if this ID already exists
-      const { data } = await supabase
+      // Check if this ID already exists in database
+      const { data, error } = await supabase
         .from('students')
         .select('student_id')
         .eq('student_id', studentId)
         .maybeSingle();
       
-      if (!data) break; // ID is unique
+      if (error) {
+        console.error('Error checking student ID:', error);
+      }
       
-    } while (attempts < 10);
+      if (!data) {
+        return studentId; // ID is unique
+      }
+      
+      attempts++;
+      // Small delay to ensure different timestamps
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
     
-    return studentId;
+    // Fallback with UUID-like suffix if all attempts fail
+    const fallbackId = `${namePart}${year}${Date.now()}${Math.random().toString(36).substring(2, 8)}`;
+    return fallbackId;
   };
 
   const generatePassword = () => {
@@ -426,13 +436,22 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
                         Back
                       </Button>
                       <Button 
-                        onClick={validateAndParseStudents}
-                        disabled={!Object.values(requiredFields).every(field => 
-                          Object.entries(requiredFields).find(([key, label]) => label === field)?.[0] && 
-                          columnMapping[Object.entries(requiredFields).find(([key, label]) => label === field)?.[0] || '']
+                        onClick={async () => {
+                          setLoading(true);
+                          try {
+                            await validateAndParseStudents();
+                          } catch (error) {
+                            console.error('Error validating students:', error);
+                            toast.error("Error processing data");
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        disabled={loading || !Object.entries(requiredFields).every(([key]) => 
+                          columnMapping[key] && columnMapping[key] !== 'none'
                         )}
                       >
-                        Next: Preview Data
+                        {loading ? "Processing..." : "Next: Preview Data"}
                       </Button>
                     </div>
                   </CardContent>
