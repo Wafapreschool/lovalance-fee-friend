@@ -351,7 +351,7 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
                                 <SelectValue placeholder="Select column" />
                               </SelectTrigger>
                               <SelectContent>
-                                {excelData.length > 0 && Object.keys(excelData[0]).map(column => (
+                                {excelData.length > 0 && Object.keys(excelData[0]).filter(column => column && column.trim()).map(column => (
                                   <SelectItem key={column} value={column}>{column}</SelectItem>
                                 ))}
                               </SelectContent>
@@ -373,12 +373,12 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
                               <SelectTrigger>
                                 <SelectValue placeholder="Select column (optional)" />
                               </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="">None</SelectItem>
-                                {excelData.length > 0 && Object.keys(excelData[0]).map(column => (
-                                  <SelectItem key={column} value={column}>{column}</SelectItem>
-                                ))}
-                              </SelectContent>
+                                <SelectContent>
+                                  <SelectItem value="">None</SelectItem>
+                                  {excelData.length > 0 && Object.keys(excelData[0]).filter(column => column && column.trim()).map(column => (
+                                    <SelectItem key={column} value={column}>{column}</SelectItem>
+                                  ))}
+                                </SelectContent>
                             </Select>
                           </div>
                         ))}
@@ -389,7 +389,13 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
                       <Button variant="outline" onClick={() => setStep('upload')}>
                         Back
                       </Button>
-                      <Button onClick={validateAndParseStudents}>
+                      <Button 
+                        onClick={validateAndParseStudents}
+                        disabled={!Object.values(requiredFields).every(field => 
+                          Object.entries(requiredFields).find(([key, label]) => label === field)?.[0] && 
+                          columnMapping[Object.entries(requiredFields).find(([key, label]) => label === field)?.[0] || '']
+                        )}
+                      >
                         Next: Preview Data
                       </Button>
                     </div>
