@@ -56,7 +56,7 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
     password: 'Password'
   };
 
-  const classOptions = ['KG1', 'KG2', 'Nursery', 'Pre-KG'];
+  // Remove fixed class options - allow any class name from Excel
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const uploadedFile = event.target.files?.[0];
@@ -126,17 +126,39 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
     reader.readAsArrayBuffer(uploadedFile);
   };
 
-  const generateStudentId = (name: string, year: number) => {
+  const generateStudentId = async (name: string, year: number): Promise<string> => {
     const namePart = name.split(' ')[0].toLowerCase();
-    return `${namePart}${year}${Math.random().toString(36).substr(2, 4)}`;
+    let attempts = 0;
+    let studentId = '';
+    
+    // Try to generate a unique student ID
+    do {
+      const randomSuffix = Math.random().toString(36).substring(2, 6);
+      studentId = `${namePart}${year}${randomSuffix}`;
+      attempts++;
+      
+      // Check if this ID already exists
+      const { data } = await supabase
+        .from('students')
+        .select('student_id')
+        .eq('student_id', studentId)
+        .maybeSingle();
+      
+      if (!data) break; // ID is unique
+      
+    } while (attempts < 10);
+    
+    return studentId;
   };
 
   const generatePassword = () => {
     return Math.random().toString(36).slice(-8);
   };
 
-  const validateAndParseStudents = () => {
-    const students: ParsedStudent[] = excelData.map((row, index) => {
+  const validateAndParseStudents = async () => {
+    const students: ParsedStudent[] = [];
+    
+    for (const [index, row] of excelData.entries()) {
       const student: ParsedStudent = {
         full_name: '',
         student_id: '',
@@ -148,22 +170,32 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
         errors: []
       };
 
-        Object.entries(columnMapping).forEach(([field, excelColumn]) => {
-          if (excelColumn && excelColumn !== 'none' && row[excelColumn]) {
-            if (field === 'year_joined') {
-              student[field] = parseInt(row[excelColumn]) || defaultYear || new Date().getFullYear();
-            } else {
-              (student as any)[field] = row[excelColumn].toString().trim();
-            }
+      // Map Excel columns to student fields
+      Object.entries(columnMapping).forEach(([field, excelColumn]) => {
+        if (excelColumn && excelColumn !== 'none' && row[excelColumn]) {
+          if (field === 'year_joined') {
+            const excelYear = parseInt(row[excelColumn]);
+            // Use Excel year if valid, otherwise use defaultYear
+            student[field] = excelYear && !isNaN(excelYear) ? excelYear : (defaultYear || new Date().getFullYear());
+          } else {
+            (student as any)[field] = row[excelColumn].toString().trim();
           }
-        });
+        }
+      });
 
-      // Generate missing fields
-      if (!student.student_id && student.full_name) {
-        student.student_id = generateStudentId(student.full_name, student.year_joined);
-      }
+      // Ensure password is always generated if not provided
       if (!student.password) {
         student.password = generatePassword();
+      }
+
+      // Generate unique student ID if not provided
+      if (!student.student_id && student.full_name) {
+        try {
+          student.student_id = await generateStudentId(student.full_name, student.year_joined);
+        } catch (error) {
+          console.error('Error generating student ID:', error);
+          student.student_id = `${student.full_name.split(' ')[0].toLowerCase()}${student.year_joined}${Math.random().toString(36).substring(2, 6)}`;
+        }
       }
 
       // Validate required fields
@@ -178,17 +210,21 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
       if (!student.class_name) {
         student.errors.push('Class is required');
         student.isValid = false;
-      } else if (!classOptions.includes(student.class_name)) {
-        student.errors.push(`Class must be one of: ${classOptions.join(', ')}`);
-        student.isValid = false;
       }
+      // Remove class validation - allow any class name
       if (!student.parent_phone) {
         student.errors.push('Parent phone is required');
         student.isValid = false;
       }
 
-      return student;
-    });
+      // Validate year matches defaultYear if provided
+      if (defaultYear && student.year_joined !== defaultYear) {
+        student.errors.push(`Year should match selected year (${defaultYear})`);
+        student.isValid = false;
+      }
+
+      students.push(student);
+    }
 
     setParsedStudents(students);
     setStep('preview');
