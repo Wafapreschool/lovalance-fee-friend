@@ -6,11 +6,13 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { CalendarDays, CreditCard, Clock, CheckCircle, ExternalLink, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
 interface SchoolYear {
   id: string;
   year: number;
   is_active: boolean;
 }
+
 interface SchoolMonth {
   id: string;
   school_year_id: string;
@@ -19,6 +21,7 @@ interface SchoolMonth {
   due_date: string;
   is_active: boolean;
 }
+
 interface StudentFee {
   id: string;
   school_month_id: string;
@@ -29,12 +32,14 @@ interface StudentFee {
   transaction_id: string | null;
   school_months: SchoolMonth;
 }
+
 interface Student {
   id: string;
   full_name: string;
   class_name: string;
   student_id: string;
 }
+
 interface ParentFeeViewProps {
   currentUser?: {
     id: string;
@@ -42,6 +47,7 @@ interface ParentFeeViewProps {
     type: string;
   } | null;
 }
+
 export const ParentFeeView = ({
   currentUser
 }: ParentFeeViewProps = {}) => {
@@ -51,63 +57,50 @@ export const ParentFeeView = ({
   const [students, setStudents] = useState<Student[]>([]);
   const [otherPayments, setOtherPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     fetchFeeData();
 
-    // Set up real-time subscription for fee updates with multiple channels
-    const feesChannel = supabase.channel('fee-updates').on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'student_fees'
-    }, () => {
-      console.log('Student fees updated, refreshing fee data...');
-      fetchFeeData();
-    }).subscribe();
+    // Set up real-time subscription for fee updates with debouncing
+    let refreshTimeout: NodeJS.Timeout;
+    
+    const debouncedRefresh = () => {
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      refreshTimeout = setTimeout(() => {
+        console.log('Fee data updated, refreshing...');
+        fetchFeeData();
+      }, 1000);
+    };
 
-    const monthsChannel = supabase.channel('school-months-updates').on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'school_months'
-    }, () => {
-      console.log('School months updated, refreshing fee data...');
-      fetchFeeData();
-    }).subscribe();
-
-    const yearsChannel = supabase.channel('school-years-updates').on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'school_years'
-    }, () => {
-      console.log('School years updated, refreshing fee data...');
-      fetchFeeData();
-    }).subscribe();
-
-    const studentsChannel = supabase.channel('students-updates').on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'students'
-    }, () => {
-      console.log('Students updated, refreshing fee data...');
-      fetchFeeData();
-    }).subscribe();
-
-    const otherPaymentsChannel = supabase.channel('other-payments-updates').on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'other_payments'
-    }, () => {
-      console.log('Other payments updated, refreshing fee data...');
-      fetchFeeData();
-    }).subscribe();
+    const dataChannel = supabase.channel('parent-fee-view-updates')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'student_fees'
+      }, debouncedRefresh)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'other_payments'
+      }, debouncedRefresh)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'school_months'
+      }, debouncedRefresh)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'school_years'
+      }, debouncedRefresh)
+      .subscribe();
 
     return () => {
-      supabase.removeChannel(feesChannel);
-      supabase.removeChannel(monthsChannel);
-      supabase.removeChannel(yearsChannel);
-      supabase.removeChannel(studentsChannel);
-      supabase.removeChannel(otherPaymentsChannel);
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      supabase.removeChannel(dataChannel);
     };
-  }, [currentUser?.id]); // Add dependency on currentUser?.id
+  }, [currentUser?.id]);
+
   const fetchFeeData = async () => {
     try {
       // Fetch school years
@@ -151,8 +144,6 @@ export const ParentFeeView = ({
         error: studentsError
       } = await supabase.from('students').select('*').eq('parent_phone', parentPhone).order('full_name');
       
-      console.log('ParentFeeView - Fetching students for parent phone:', parentPhone);
-      console.log('ParentFeeView - Students found:', studentsData);
       if (studentsError) throw studentsError;
 
       if (!studentsData || studentsData.length === 0) {
@@ -204,6 +195,7 @@ export const ParentFeeView = ({
       setLoading(false);
     }
   };
+
   const getStatusBadge = (status: string, dueDate: string) => {
     const isOverdue = new Date(dueDate) < new Date() && status === 'pending';
     if (status === 'paid') {
@@ -223,18 +215,11 @@ export const ParentFeeView = ({
       </Badge>;
     }
   };
+
   const handlePayment = async (feeId: string, studentName: string, month: string, amount: number) => {
     try {
-      // Show loading toast
       const loadingToast = toast.loading(`Redirecting to BML Gateway for ${month} payment...`);
 
-      // In a real implementation, this would:
-      // 1. Create a payment session with BML Gateway
-      // 2. Include the student_fee_id in the payment reference
-      // 3. Redirect to BML payment page
-      // 4. Handle the webhook response to update payment status
-
-      // For now, simulate the redirect
       setTimeout(() => {
         toast.dismiss(loadingToast);
         toast.success(`Payment gateway opened for ${studentName} - ${month} (MVR ${amount.toLocaleString()})`);
@@ -245,24 +230,26 @@ export const ParentFeeView = ({
       toast.error("Failed to initiate payment. Please try again.");
     }
   };
-  const getFeesForYearAndStudent = (yearId: string, studentId: string) => {
-    return studentFees.filter(fee => fee.school_months.school_year_id === yearId && fee.student_id === studentId);
-  };
+
   const getMonthsForYear = (yearId: string) => {
     return schoolMonths.filter(month => month.school_year_id === yearId).sort((a, b) => a.month_number - b.month_number);
   };
+
   const getTotalPendingAmount = () => {
     const studentIds = students.map(s => s.id);
     return studentFees.filter(fee => fee.status === 'pending' && studentIds.includes(fee.student_id)).reduce((sum, fee) => sum + fee.amount, 0);
   };
+
   const getPaidFeesCount = () => {
     const studentIds = students.map(s => s.id);
     return studentFees.filter(fee => fee.status === 'paid' && studentIds.includes(fee.student_id)).length;
   };
+
   const getPendingFeesCount = () => {
     const studentIds = students.map(s => s.id);
     return studentFees.filter(fee => fee.status === 'pending' && studentIds.includes(fee.student_id)).length;
   };
+
   if (loading) {
     return <div className="space-y-4">
         <div className="animate-pulse space-y-4">
@@ -270,6 +257,7 @@ export const ParentFeeView = ({
         </div>
       </div>;
   }
+
   return <div className="space-y-6">
       {/* Header */}
       <div>
@@ -313,160 +301,181 @@ export const ParentFeeView = ({
         </Card>
       </div>
 
-      {/* Students and Fees */}
+      {/* Fee Management by Year and Month */}
       <div className="space-y-6">
-        {students.map(student => <Card key={student.id} className="border-l-4 border-l-primary">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
+        {(() => {
+          // Get all unique years that have fees across all students
+          const yearIdsWithFees = [...new Set(studentFees.map(fee => fee.school_months.school_year_id))];
+          const yearsWithFees = schoolYears.filter(year => yearIdsWithFees.includes(year.id));
+          
+          if (yearsWithFees.length === 0) {
+            return (
+              <div className="text-center py-8">
+                <CalendarDays className="h-16 w-16 mx-auto mb-6 text-muted-foreground opacity-50" />
+                <h3 className="text-lg font-medium mb-2">No Fees Assigned</h3>
+                <p className="text-muted-foreground">No fees have been assigned yet</p>
+              </div>
+            );
+          }
+
+          return yearsWithFees.map(year => {
+            const monthsForYear = getMonthsForYear(year.id);
+            const monthsWithFees = monthsForYear.filter(month => 
+              studentFees.some(fee => fee.school_month_id === month.id)
+            );
+
+            if (monthsWithFees.length === 0) return null;
+
+            return (
+              <Card key={year.id} className="border-l-4 border-l-primary">
+                <CardHeader>
                   <CardTitle className="flex items-center gap-3">
                     <CalendarDays className="h-5 w-5 text-primary" />
-                    {student.full_name}
+                    Academic Year {year.year}
+                    {year.is_active && <Badge variant="default">Current</Badge>}
                   </CardTitle>
-                  <CardDescription>
-                    Student ID: {student.student_id} • Class: {student.class_name}
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            
-            <CardContent>
-              <Accordion type="single" collapsible className="w-full">
-                {(() => {
-                  // Get unique years that have fees assigned for this student
-                  const studentFeesForStudent = studentFees.filter(fee => fee.student_id === student.id);
-                  const yearIdsWithFees = [...new Set(studentFeesForStudent.map(fee => fee.school_months.school_year_id))];
-                  
-                  // Filter school years to only show years with fees
-                  const yearsWithFees = schoolYears.filter(year => yearIdsWithFees.includes(year.id));
-                  
-                  return yearsWithFees.map(year => {
-                    const studentFeesForYear = getFeesForYearAndStudent(year.id, student.id);
-                    const monthsForYear = getMonthsForYear(year.id);
-                    
-                    // Only show months that have fees assigned
-                    const monthsWithFees = monthsForYear.filter(month => 
-                      studentFeesForYear.some(fee => fee.school_month_id === month.id)
-                    );
-                    
-                    if (monthsWithFees.length === 0) return null;
-                    
-                    return (
-                      <AccordionItem key={year.id} value={year.id}>
-                        <AccordionTrigger className="text-lg font-semibold">
-                          Academic Year {year.year}
-                          {year.is_active && <Badge variant="default" className="ml-2">Current</Badge>}
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <div className="grid gap-4">
-                            {monthsWithFees.map(month => {
-                              const fee = studentFeesForYear.find(f => f.school_month_id === month.id);
-                              
-                              return (
-                                <div key={fee.id} className="p-4 border bg-background rounded">
-                                  <div className="flex justify-between items-center rounded-sm">
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-3 mb-2">
-                                        <h4 className="font-medium">{month.month_name}</h4>
-                                        {getStatusBadge(fee.status, month.due_date)}
-                                      </div>
-                                      <div className="text-sm text-muted-foreground space-y-1">
-                                        <p>Amount: MVR {fee.amount.toLocaleString()}</p>
-                                        <p>Due Date: {new Date(month.due_date).toLocaleDateString()}</p>
-                                        {fee.payment_date && <p>Paid: {new Date(fee.payment_date).toLocaleDateString()}</p>}
-                                        {fee.transaction_id && <p>Transaction ID: {fee.transaction_id}</p>}
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="ml-4">
-                                      {fee.status === 'pending' && (
-                                        <Button 
-                                          onClick={() => handlePayment(fee.id, student.full_name, month.month_name, fee.amount)} 
-                                          variant="gradient" 
-                                          className="flex items-center gap-2"
-                                        >
-                                          <CreditCard className="h-4 w-4" />
-                                          Pay Now
-                                          <ExternalLink className="h-3 w-3" />
-                                        </Button>
-                                      )}
-                                      {fee.status === 'overdue' && (
-                                        <Button 
-                                          onClick={() => handlePayment(fee.id, student.full_name, month.month_name, fee.amount)} 
-                                          variant="destructive" 
-                                          className="flex items-center gap-2"
-                                        >
-                                          <AlertCircle className="h-4 w-4" />
-                                          Pay Overdue
-                                          <ExternalLink className="h-3 w-3" />
-                                        </Button>
-                                      )}
-                                      {fee.status === 'paid' && (
-                                        <div className="text-success font-medium flex items-center gap-2">
-                                          <CheckCircle className="h-4 w-4" />
-                                          Paid
+                </CardHeader>
+                
+                <CardContent>
+                  <Accordion type="multiple" className="w-full">
+                    {monthsWithFees.map(month => {
+                      const feesForMonth = studentFees.filter(fee => fee.school_month_id === month.id);
+                      
+                      return (
+                        <AccordionItem key={month.id} value={month.id}>
+                          <AccordionTrigger className="text-lg font-semibold">
+                            {month.month_name}
+                            <Badge variant="outline" className="ml-2">
+                              {feesForMonth.length} student{feesForMonth.length !== 1 ? 's' : ''}
+                            </Badge>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="grid gap-4">
+                              {feesForMonth.map(fee => {
+                                const student = students.find(s => s.id === fee.student_id);
+                                if (!student) return null;
+
+                                return (
+                                  <div key={fee.id} className="p-4 border bg-background rounded">
+                                    <div className="flex justify-between items-center">
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-3 mb-2">
+                                          <h4 className="font-medium">{student.full_name}</h4>
+                                          <span className="text-sm text-muted-foreground">({student.class_name})</span>
+                                          {getStatusBadge(fee.status, month.due_date)}
                                         </div>
-                                      )}
+                                        <div className="text-sm text-muted-foreground space-y-1">
+                                          <p>Amount: MVR {fee.amount.toLocaleString()}</p>
+                                          <p>Due Date: {new Date(month.due_date).toLocaleDateString()}</p>
+                                          {fee.payment_date && <p>Paid: {new Date(fee.payment_date).toLocaleDateString()}</p>}
+                                          {fee.transaction_id && <p>Transaction ID: {fee.transaction_id}</p>}
+                                        </div>
+                                      </div>
+                                      
+                                      <div className="ml-4">
+                                        {fee.status === 'pending' && (
+                                          <Button 
+                                            onClick={() => handlePayment(fee.id, student.full_name, month.month_name, fee.amount)} 
+                                            variant="gradient" 
+                                            className="flex items-center gap-2"
+                                          >
+                                            <CreditCard className="h-4 w-4" />
+                                            Pay Now
+                                            <ExternalLink className="h-3 w-3" />
+                                          </Button>
+                                        )}
+                                        {fee.status === 'overdue' && (
+                                          <Button 
+                                            onClick={() => handlePayment(fee.id, student.full_name, month.month_name, fee.amount)} 
+                                            variant="destructive" 
+                                            className="flex items-center gap-2"
+                                          >
+                                            <AlertCircle className="h-4 w-4" />
+                                            Pay Overdue
+                                            <ExternalLink className="h-3 w-3" />
+                                          </Button>
+                                        )}
+                                        {fee.status === 'paid' && (
+                                          <div className="text-success font-medium flex items-center gap-2">
+                                            <CheckCircle className="h-4 w-4" />
+                                            Paid
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
+                                );
+                              })}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
+                </CardContent>
+
+                {/* Other Payments Section */}
+                {(() => {
+                  const otherPaymentsForYear = otherPayments.filter(payment => 
+                    students.some(student => student.id === payment.student_id)
+                  );
+                  
+                  if (otherPaymentsForYear.length === 0) return null;
+
+                  return (
+                    <CardContent className="pt-0">
+                      <div className="border-t pt-4">
+                        <h4 className="font-semibold mb-3 text-blue-700">Other Payments</h4>
+                        <div className="grid gap-3">
+                          {otherPaymentsForYear.map(payment => {
+                            const student = students.find(s => s.id === payment.student_id);
+                            if (!student) return null;
+
+                            return (
+                              <div key={payment.id} className="flex justify-between items-center p-3 rounded bg-blue-50 border">
+                                <div>
+                                  <p className="font-medium">{payment.payment_name}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {student.full_name} • MVR {payment.amount} • {new Date(payment.created_at).toLocaleDateString()}
+                                  </p>
                                 </div>
-                              );
-                            })}
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    );
-                  });
-                })()}
-              </Accordion>
-            </CardContent>
-            
-            {/* Other Payments for this student */}
-            {otherPayments.filter(payment => payment.student_id === student.id).length > 0 && (
-              <CardContent className="pt-0">
-                <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3 text-blue-700">Other Payments</h4>
-                  <div className="space-y-2">
-                    {otherPayments
-                      .filter(payment => payment.student_id === student.id)
-                      .map(payment => (
-                        <div key={payment.id} className="flex justify-between items-center p-3 rounded bg-blue-50 border">
-                          <div>
-                            <p className="font-medium">{payment.payment_name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              MVR {payment.amount} • {new Date(payment.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant={payment.status === 'paid' ? 'default' : 'secondary'} 
-                                   className={payment.status === 'paid' ? 'bg-success text-success-foreground' : 'bg-blue-100 text-blue-700'}>
-                              {payment.status === 'paid' ? 'Paid' : 'Pending'}
-                            </Badge>
-                            {payment.status === 'pending' && (
-                              <Button
-                                onClick={() => handlePayment(payment.id, student.full_name, payment.payment_name, payment.amount)}
-                                variant="default"
-                                size="sm"
-                                className="bg-blue-600 hover:bg-blue-700"
-                              >
-                                <CreditCard className="h-4 w-4 mr-1" />
-                                Pay Now
-                              </Button>
-                            )}
-                          </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={payment.status === 'paid' ? 'default' : 'secondary'} 
+                                         className={payment.status === 'paid' ? 'bg-success text-success-foreground' : 'bg-blue-100 text-blue-700'}>
+                                    {payment.status === 'paid' ? 'Paid' : 'Pending'}
+                                  </Badge>
+                                  {payment.status === 'pending' && (
+                                    <Button
+                                      onClick={() => handlePayment(payment.id, student.full_name, payment.payment_name, payment.amount)}
+                                      variant="default"
+                                      size="sm"
+                                      className="bg-blue-600 hover:bg-blue-700"
+                                    >
+                                      <CreditCard className="h-4 w-4 mr-1" />
+                                      Pay Now
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      ))}
-                  </div>
-                </div>
-              </CardContent>
-            )}
-          </Card>)}
+                      </div>
+                    </CardContent>
+                  );
+                })()}
+              </Card>
+            );
+          });
+        })()}
       </div>
 
-      {students.length === 0 && <div className="text-center py-12">
+      {students.length === 0 && (
+        <div className="text-center py-12">
           <CalendarDays className="h-16 w-16 mx-auto mb-6 text-muted-foreground opacity-50" />
           <h3 className="text-lg font-medium mb-2">No Students Found</h3>
           <p className="text-muted-foreground">Contact the school to register your children</p>
-        </div>}
+        </div>
+      )}
     </div>;
 };
