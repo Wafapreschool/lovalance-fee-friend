@@ -235,60 +235,36 @@ export const ParentDashboard = ({
   useEffect(() => {
     fetchStudentsData();
 
-    // Set up real-time subscriptions for automatic updates
-    const studentsChannel = supabase.channel('students-changes').on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'students'
-    }, () => {
-      console.log('Students updated, refreshing data...');
-      fetchStudentsData();
-    }).subscribe();
+    // Set up throttled real-time subscriptions with debouncing
+    let refreshTimeout: NodeJS.Timeout;
     
-    const feesChannel = supabase.channel('fees-changes').on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'student_fees'
-    }, () => {
-      console.log('Student fees updated, refreshing data...');
-      fetchStudentsData();
-    }).subscribe();
-    
-    const schoolMonthsChannel = supabase.channel('school-months-changes').on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'school_months'
-    }, () => {
-      console.log('School months updated, refreshing data...');
-      fetchStudentsData();
-    }).subscribe();
+    const debouncedRefresh = () => {
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      refreshTimeout = setTimeout(() => {
+        console.log('Data updated, refreshing...');
+        fetchStudentsData();
+      }, 1000); // Debounce to prevent excessive calls
+    };
 
-    const schoolYearsChannel = supabase.channel('school-years-changes').on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'school_years'
-    }, () => {
-      console.log('School years updated, refreshing data...');
-      fetchStudentsData();
-    }).subscribe();
-
-    const otherPaymentsChannel = supabase.channel('other-payments-changes').on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'other_payments'
-    }, () => {
-      console.log('Other payments updated, refreshing data...');
-      fetchStudentsData();
-    }).subscribe();
+    // Combine all subscriptions into a single channel to reduce overhead
+    const dataChannel = supabase.channel('parent-dashboard-updates')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'student_fees'
+      }, debouncedRefresh)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'other_payments'
+      }, debouncedRefresh)
+      .subscribe();
     
     return () => {
-      supabase.removeChannel(studentsChannel);
-      supabase.removeChannel(feesChannel);
-      supabase.removeChannel(schoolMonthsChannel);
-      supabase.removeChannel(schoolYearsChannel);
-      supabase.removeChannel(otherPaymentsChannel);
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      supabase.removeChannel(dataChannel);
     };
-  }, [currentUser.id]); // Add dependency on currentUser.id
+  }, [currentUser.id]);
 
   const handlePaySpecificFee = async (feeId: string, studentName: string, monthName: string, amount: number) => {
     try {
