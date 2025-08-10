@@ -208,6 +208,23 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
         }
       }
 
+      // Check if student already exists
+      if (student.student_id) {
+        const { data: existingStudent } = await supabase
+          .from('students')
+          .select('student_id, year_joined')
+          .eq('student_id', student.student_id)
+          .maybeSingle();
+
+        if (existingStudent) {
+          // Student exists, add for next year
+          const nextYear = existingStudent.year_joined + 1;
+          student.year_joined = nextYear;
+          student.student_id = await generateStudentId(student.full_name, nextYear);
+          student.errors.push(`Student already exists, added for year ${nextYear}`);
+        }
+      }
+
       // Validate required fields
       if (!student.full_name) {
         student.errors.push('Full name is required');
@@ -221,15 +238,8 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
         student.errors.push('Class is required');
         student.isValid = false;
       }
-      // Remove class validation - allow any class name
       if (!student.parent_phone) {
         student.errors.push('Parent phone is required');
-        student.isValid = false;
-      }
-
-      // Validate year matches defaultYear if provided
-      if (defaultYear && student.year_joined !== defaultYear) {
-        student.errors.push(`Year should match selected year (${defaultYear})`);
         student.isValid = false;
       }
 
