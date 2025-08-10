@@ -11,6 +11,7 @@ import { Calendar, Users, Plus, Edit, Trash2, ChevronDown, ChevronRight } from "
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { MonthFeeAssignment } from "./MonthFeeAssignment";
+import { OtherPaymentAssignment } from "./OtherPaymentAssignment";
 
 interface SchoolYear {
   id: string;
@@ -329,6 +330,7 @@ export const EnhancedFeeManagement = () => {
                             </div>
                             <div className="flex items-center gap-2">
                               <MonthFeeAssignment month={month} />
+                              <OtherPaymentAssignment />
                               <Button
                                 variant="outline"
                                 size="sm"

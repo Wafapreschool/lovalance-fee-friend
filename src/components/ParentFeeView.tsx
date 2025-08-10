@@ -49,6 +49,7 @@ export const ParentFeeView = ({
   const [schoolMonths, setSchoolMonths] = useState<SchoolMonth[]>([]);
   const [studentFees, setStudentFees] = useState<StudentFee[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  const [otherPayments, setOtherPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     fetchFeeData();
@@ -147,6 +148,7 @@ export const ParentFeeView = ({
       if (!studentsData || studentsData.length === 0) {
         setStudents([]);
         setStudentFees([]);
+        setOtherPayments([]);
         setLoading(false);
         return;
       }
@@ -164,9 +166,23 @@ export const ParentFeeView = ({
         ascending: false
       });
       if (feesError) throw feesError;
+      
+      // Fetch other payments for all students
+      const {
+        data: otherPaymentsData,
+        error: otherPaymentsError
+      } = await supabase
+        .from('other_payments')
+        .select('*')
+        .in('student_id', studentIds)
+        .order('created_at', { ascending: false });
+      
+      if (otherPaymentsError) throw otherPaymentsError;
+      
       setSchoolYears(yearsData || []);
       setSchoolMonths(monthsData || []);
       setStudents(studentsData || []);
+      setOtherPayments(otherPaymentsData || []);
       setStudentFees(feesData?.map(fee => ({
         ...fee,
         status: fee.status as 'pending' | 'paid' | 'overdue'
@@ -372,6 +388,46 @@ export const ParentFeeView = ({
             })}
               </Accordion>
             </CardContent>
+            
+            {/* Other Payments for this student */}
+            {otherPayments.filter(payment => payment.student_id === student.id).length > 0 && (
+              <CardContent className="pt-0">
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-3 text-blue-700">Other Payments</h4>
+                  <div className="space-y-2">
+                    {otherPayments
+                      .filter(payment => payment.student_id === student.id)
+                      .map(payment => (
+                        <div key={payment.id} className="flex justify-between items-center p-3 rounded bg-blue-50 border">
+                          <div>
+                            <p className="font-medium">{payment.payment_name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              MVR {payment.amount} • {new Date(payment.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant={payment.status === 'paid' ? 'default' : 'secondary'} 
+                                   className={payment.status === 'paid' ? 'bg-success text-success-foreground' : 'bg-blue-100 text-blue-700'}>
+                              {payment.status === 'paid' ? 'Paid' : 'Pending'}
+                            </Badge>
+                            {payment.status === 'pending' && (
+                              <Button
+                                onClick={() => handlePayment(payment.id, student.full_name, payment.payment_name, payment.amount)}
+                                variant="default"
+                                size="sm"
+                                className="bg-blue-600 hover:bg-blue-700"
+                              >
+                                <CreditCard className="h-4 w-4 mr-1" />
+                                Pay Now
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </CardContent>
+            )}
           </Card>)}
       </div>
 

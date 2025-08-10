@@ -108,6 +108,42 @@ export type Database = {
           },
         ]
       }
+      other_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          payment_date: string | null
+          payment_name: string
+          status: string
+          student_id: string
+          transaction_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          payment_date?: string | null
+          payment_name: string
+          status?: string
+          student_id: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          payment_date?: string | null
+          payment_name?: string
+          status?: string
+          student_id?: string
+          transaction_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       school_months: {
         Row: {
           created_at: string

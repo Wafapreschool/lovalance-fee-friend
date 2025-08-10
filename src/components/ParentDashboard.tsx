@@ -35,6 +35,7 @@ export const ParentDashboard = ({
   const [students, setStudents] = useState<Student[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [allStudentFees, setAllStudentFees] = useState<any[]>([]);
+  const [otherPayments, setOtherPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -97,6 +98,7 @@ export const ParentDashboard = ({
       if (!studentsData || studentsData.length === 0) {
         setStudents([]);
         setPaymentHistory([]);
+        setOtherPayments([]);
         setLoading(false);
         return;
       }
@@ -129,6 +131,24 @@ export const ParentDashboard = ({
         toast.error("Failed to load fees");
         return;
       }
+
+      // Fetch other payments for all students
+      const {
+        data: otherPaymentsData,
+        error: otherPaymentsError
+      } = await supabase
+        .from('other_payments')
+        .select('*')
+        .in('student_id', studentIds)
+        .order('created_at', { ascending: false });
+
+      if (otherPaymentsError) {
+        console.error('Error fetching other payments:', otherPaymentsError);
+        toast.error("Failed to load other payments");
+        return;
+      }
+
+      setOtherPayments(otherPaymentsData || []);
 
       // Transform students data with their most recent unpaid fees or latest fee
       const transformedStudents: Student[] = studentsData.map(student => {
@@ -250,12 +270,22 @@ export const ParentDashboard = ({
       console.log('School years updated, refreshing data...');
       fetchStudentsData();
     }).subscribe();
+
+    const otherPaymentsChannel = supabase.channel('other-payments-changes').on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'other_payments'
+    }, () => {
+      console.log('Other payments updated, refreshing data...');
+      fetchStudentsData();
+    }).subscribe();
     
     return () => {
       supabase.removeChannel(studentsChannel);
       supabase.removeChannel(feesChannel);
       supabase.removeChannel(schoolMonthsChannel);
       supabase.removeChannel(schoolYearsChannel);
+      supabase.removeChannel(otherPaymentsChannel);
     };
   }, [currentUser.id]); // Add dependency on currentUser.id
 
@@ -269,6 +299,23 @@ export const ParentDashboard = ({
         toast.dismiss(loadingToast);
         toast.success(`Payment gateway opened for ${studentName} - ${monthName} (MVR ${amount.toLocaleString()})`);
         console.log("BML Gateway integration - Fee ID:", feeId);
+      }, 1500);
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error("Failed to initiate payment. Please try again.");
+    }
+  };
+
+  const handlePayOtherPayment = async (paymentId: string, studentName: string, paymentName: string, amount: number) => {
+    try {
+      // Show loading toast
+      const loadingToast = toast.loading(`Redirecting to BML Gateway for ${paymentName} payment...`);
+
+      // In a real implementation, this would redirect to BML Gateway
+      setTimeout(() => {
+        toast.dismiss(loadingToast);
+        toast.success(`Payment gateway opened for ${studentName} - ${paymentName} (MVR ${amount.toLocaleString()})`);
+        console.log("BML Gateway integration - Payment ID:", paymentId);
       }, 1500);
     } catch (error) {
       console.error('Payment error:', error);
@@ -341,7 +388,7 @@ export const ParentDashboard = ({
             {/* Unpaid Fees Section */}
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h2 className="font-bold text-lg">Unpaid Fees</h2>
+                <h2 className="font-bold text-lg">Unpaid Fees & Other Payments</h2>
               </div>
 
               {loading ? (
@@ -437,6 +484,75 @@ export const ParentDashboard = ({
                   ) : (
                     <div className="text-center py-8">
                       <p className="text-muted-foreground">No students found</p>
+                    </div>
+                  )}
+                  
+                  {/* Other Payments Section */}
+                  {otherPayments.filter(p => p.status === 'pending').length > 0 && (
+                    <div className="mt-6">
+                      <h3 className="text-lg font-semibold mb-4 text-blue-700">Other Payments Due</h3>
+                      <div className="space-y-4">
+                        {otherPayments
+                          .filter(payment => payment.status === 'pending')
+                          .reduce((acc, payment) => {
+                            const student = students.find(s => s.id === payment.student_id);
+                            if (!student) return acc;
+                            
+                            const existingEntry = acc.find(entry => entry.studentId === student.id);
+                            if (existingEntry) {
+                              existingEntry.payments.push(payment);
+                            } else {
+                              acc.push({
+                                studentId: student.id,
+                                student,
+                                payments: [payment]
+                              });
+                            }
+                            return acc;
+                          }, [] as any[])
+                          .map(({ student, payments }) => (
+                            <Card key={student.id} className="border-l-4 border-l-blue-500">
+                              <CardHeader>
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <CardTitle className="flex items-center gap-2">
+                                      <CreditCard className="h-5 w-5 text-blue-600" />
+                                      {student.name}
+                                    </CardTitle>
+                                    <CardDescription>Class: {student.class}</CardDescription>
+                                  </div>
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                                    {payments.length} Payment{payments.length > 1 ? 's' : ''}
+                                  </Badge>
+                                </div>
+                              </CardHeader>
+                              <CardContent>
+                                <div className="space-y-3">
+                                  {payments.map((payment: any) => (
+                                    <div key={payment.id} className="flex items-center justify-between p-3 rounded-lg border bg-blue-50">
+                                      <div>
+                                        <p className="font-medium">{payment.payment_name}</p>
+                                        <p className="text-sm text-muted-foreground">
+                                          Added: {new Date(payment.created_at).toLocaleDateString()}
+                                        </p>
+                                        <p className="text-sm font-semibold text-blue-700">MVR {payment.amount.toLocaleString()}</p>
+                                      </div>
+                                      <Button
+                                        onClick={() => handlePayOtherPayment(payment.id, student.name, payment.payment_name, payment.amount)}
+                                        variant="default"
+                                        size="sm"
+                                        className="ml-2 bg-blue-600 hover:bg-blue-700"
+                                      >
+                                        <CreditCard className="h-4 w-4 mr-1" />
+                                        Pay Now
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                      </div>
                     </div>
                   )}
                 </div>
