@@ -193,6 +193,11 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
         }
       });
 
+      // If no year in Excel, use defaultYear
+      if (!student.year_joined || isNaN(student.year_joined)) {
+        student.year_joined = defaultYear || new Date().getFullYear();
+      }
+
       // Ensure password is always generated if not provided
       if (!student.password) {
         student.password = generatePassword();
@@ -208,25 +213,31 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
         }
       }
 
-      // Check if student already exists and find next available year
-      if (student.student_id) {
-        const { data: existingStudents } = await supabase
+      // Check if student already exists for the SAME YEAR
+      if (student.student_id && student.full_name) {
+        const { data: existingStudent } = await supabase
           .from('students')
           .select('student_id, year_joined, full_name')
           .eq('full_name', student.full_name)
-          .order('year_joined', { ascending: false });
+          .eq('year_joined', student.year_joined)
+          .maybeSingle();
 
-        if (existingStudents && existingStudents.length > 0) {
-          // Find the highest year for this student and add them for the next year
-          const latestYear = Math.max(...existingStudents.map(s => s.year_joined));
-          const nextYear = latestYear + 1;
-          
-          student.year_joined = nextYear;
-          student.student_id = await generateStudentId(student.full_name, nextYear);
-          student.errors.push(`Student exists, adding for year ${nextYear}`);
-          
-          // This is still valid since we're adding them for a new year
-          // Don't mark as invalid
+        if (existingStudent) {
+          // Student already exists for this year, find next available year
+          const { data: allYearsForStudent } = await supabase
+            .from('students')
+            .select('year_joined')
+            .eq('full_name', student.full_name)
+            .order('year_joined', { ascending: false });
+
+          if (allYearsForStudent && allYearsForStudent.length > 0) {
+            const latestYear = Math.max(...allYearsForStudent.map(s => s.year_joined));
+            const nextYear = latestYear + 1;
+            
+            student.year_joined = nextYear;
+            student.student_id = await generateStudentId(student.full_name, nextYear);
+            student.errors.push(`Student exists, adding for year ${nextYear}`);
+          }
         }
       }
 
@@ -246,6 +257,15 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
       if (!student.parent_phone) {
         student.errors.push('Parent phone is required');
         student.isValid = false;
+      }
+
+      // Check if Excel year matches selected year (if both provided)
+      if (defaultYear && columnMapping.year_joined && columnMapping.year_joined !== 'none') {
+        const excelYear = parseInt(row[columnMapping.year_joined]);
+        if (excelYear && !isNaN(excelYear) && excelYear !== defaultYear) {
+          student.errors.push(`Excel year (${excelYear}) doesn't match selected year (${defaultYear})`);
+          student.isValid = false;
+        }
       }
 
       students.push(student);
