@@ -378,40 +378,54 @@ export const ParentDashboard = ({
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {students.length > 0 ? (
-                    students.map(student => {
-                      // Get all unpaid fees for this student
+                  {(() => {
+                    // Get students with unpaid fees
+                    const studentsWithUnpaidFees = students.filter(student => {
+                      const unpaidFees = allStudentFees.filter(fee => 
+                        fee.student_id === student.id && 
+                        (fee.status === 'pending' || fee.status === 'overdue')
+                      );
+                      return unpaidFees.length > 0;
+                    });
+
+                    // Get students with pending other payments
+                    const studentsWithPendingOtherPayments = students.filter(student => {
+                      const pendingOtherPayments = otherPayments.filter(payment => 
+                        payment.student_id === student.id && 
+                        payment.status === 'pending'
+                      );
+                      return pendingOtherPayments.length > 0;
+                    });
+
+                    // Combine and deduplicate students
+                    const studentsWithPendingPayments = [
+                      ...studentsWithUnpaidFees,
+                      ...studentsWithPendingOtherPayments.filter(student => 
+                        !studentsWithUnpaidFees.find(s => s.id === student.id)
+                      )
+                    ];
+
+                    if (studentsWithPendingPayments.length === 0) {
+                      return (
+                        <div className="text-center py-8">
+                          <CheckCircle className="h-16 w-16 text-success mx-auto mb-4" />
+                          <h3 className="text-lg font-semibold text-success mb-2">All Payments Up to Date!</h3>
+                          <p className="text-muted-foreground">No pending fees or other payments found</p>
+                        </div>
+                      );
+                    }
+
+                    return studentsWithPendingPayments.map(student => {
+                      // Get unpaid fees for this student
                       const unpaidFees = allStudentFees
                         .filter(fee => fee.student_id === student.id && (fee.status === 'pending' || fee.status === 'overdue'))
                         .sort((a, b) => new Date(a.school_months.due_date).getTime() - new Date(b.school_months.due_date).getTime());
 
-                      if (unpaidFees.length === 0) {
-                        return (
-                          <Card key={student.id} className="border-l-4 border-l-success">
-                            <CardContent className="pt-6">
-                              <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <CheckCircle className="h-5 w-5 text-success" />
-                                <div>
-                                  <h3 className="font-semibold">{student.name}</h3>
-                                  <p className="text-sm text-muted-foreground">All fees up to date</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <OtherPaymentView 
-                                  studentId={student.id}
-                                  studentName={student.name}
-                                  onPayment={handlePayOtherPayment}
-                                />
-                                <Badge variant="default" className="bg-success text-success-foreground">
-                                  Paid Up
-                                </Badge>
-                              </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      }
+                      // Get pending other payments for this student
+                      const pendingOtherPayments = otherPayments.filter(payment => 
+                        payment.student_id === student.id && 
+                        payment.status === 'pending'
+                      );
 
                       return (
                         <Card key={student.id} className="border-l-4 border-l-warning">
@@ -420,24 +434,20 @@ export const ParentDashboard = ({
                               <div>
                                 <CardTitle className="flex items-center gap-2">
                                   <AlertCircle className="h-5 w-5 text-warning" />
-                                   {student.name}
-                                 </CardTitle>
-                                 <CardDescription>Class: {student.class}</CardDescription>
+                                  {student.name}
+                                </CardTitle>
+                                <CardDescription>Class: {student.class}</CardDescription>
                               </div>
                               <div className="flex items-center gap-2">
-                                <OtherPaymentView 
-                                  studentId={student.id}
-                                  studentName={student.name}
-                                  onPayment={handlePayOtherPayment}
-                                />
                                 <Badge variant="secondary" className="bg-warning text-warning-foreground">
-                                  {unpaidFees.length} Unpaid
+                                  {unpaidFees.length + pendingOtherPayments.length} Pending
                                 </Badge>
                               </div>
                             </div>
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-3">
+                              {/* Unpaid Fees */}
                               {unpaidFees.map(fee => (
                                 <div key={fee.id} className="flex items-center justify-between p-3 rounded-lg border bg-background">
                                   <div>
@@ -467,85 +477,37 @@ export const ParentDashboard = ({
                                   </div>
                                 </div>
                               ))}
+                              
+                              {/* Pending Other Payments */}
+                              {pendingOtherPayments.map(payment => (
+                                <div key={payment.id} className="flex items-center justify-between p-3 rounded-lg border bg-blue-50">
+                                  <div>
+                                    <p className="font-medium">{payment.payment_name}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Added: {new Date(payment.created_at).toLocaleDateString()}
+                                    </p>
+                                    <p className="text-sm font-semibold text-blue-700">MVR {payment.amount.toLocaleString()}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="secondary" className="bg-blue-100 text-blue-700">Other Payment</Badge>
+                                    <Button
+                                      onClick={() => handlePayOtherPayment(payment.id, student.name, payment.payment_name, payment.amount)}
+                                      variant="default"
+                                      size="sm"
+                                      className="ml-2 bg-blue-600 hover:bg-blue-700"
+                                    >
+                                      <CreditCard className="h-4 w-4 mr-1" />
+                                      Pay Now
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           </CardContent>
                         </Card>
                       );
-                    })
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground">No students found</p>
-                    </div>
-                  )}
-                  
-                  {/* Other Payments Section */}
-                  {otherPayments.filter(p => p.status === 'pending').length > 0 && (
-                    <div className="mt-6">
-                      <h3 className="text-lg font-semibold mb-4 text-blue-700">Other Payments Due</h3>
-                      <div className="space-y-4">
-                        {otherPayments
-                          .filter(payment => payment.status === 'pending')
-                          .reduce((acc, payment) => {
-                            const student = students.find(s => s.id === payment.student_id);
-                            if (!student) return acc;
-                            
-                            const existingEntry = acc.find(entry => entry.studentId === student.id);
-                            if (existingEntry) {
-                              existingEntry.payments.push(payment);
-                            } else {
-                              acc.push({
-                                studentId: student.id,
-                                student,
-                                payments: [payment]
-                              });
-                            }
-                            return acc;
-                          }, [] as any[])
-                          .map(({ student, payments }) => (
-                            <Card key={student.id} className="border-l-4 border-l-blue-500">
-                              <CardHeader>
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <CardTitle className="flex items-center gap-2">
-                                      <CreditCard className="h-5 w-5 text-blue-600" />
-                                      {student.name}
-                                    </CardTitle>
-                                    <CardDescription>Class: {student.class}</CardDescription>
-                                  </div>
-                                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                                    {payments.length} Payment{payments.length > 1 ? 's' : ''}
-                                  </Badge>
-                                </div>
-                              </CardHeader>
-                              <CardContent>
-                                <div className="space-y-3">
-                                  {payments.map((payment: any) => (
-                                    <div key={payment.id} className="flex items-center justify-between p-3 rounded-lg border bg-blue-50">
-                                      <div>
-                                        <p className="font-medium">{payment.payment_name}</p>
-                                        <p className="text-sm text-muted-foreground">
-                                          Added: {new Date(payment.created_at).toLocaleDateString()}
-                                        </p>
-                                        <p className="text-sm font-semibold text-blue-700">MVR {payment.amount.toLocaleString()}</p>
-                                      </div>
-                                      <Button
-                                        onClick={() => handlePayOtherPayment(payment.id, student.name, payment.payment_name, payment.amount)}
-                                        variant="default"
-                                        size="sm"
-                                        className="ml-2 bg-blue-600 hover:bg-blue-700"
-                                      >
-                                        <CreditCard className="h-4 w-4 mr-1" />
-                                        Pay Now
-                                      </Button>
-                                    </div>
-                                  ))}
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                      </div>
-                    </div>
-                  )}
+                    });
+                  })()}
                 </div>
               )}
             </div>
