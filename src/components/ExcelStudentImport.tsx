@@ -149,7 +149,7 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
       };
 
         Object.entries(columnMapping).forEach(([field, excelColumn]) => {
-          if (excelColumn && row[excelColumn]) {
+          if (excelColumn && excelColumn !== 'none' && row[excelColumn]) {
             if (field === 'year_joined') {
               student[field] = parseInt(row[excelColumn]) || defaultYear || new Date().getFullYear();
             } else {
@@ -374,7 +374,7 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
                                 <SelectValue placeholder="Select column (optional)" />
                               </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="">None</SelectItem>
+                                  <SelectItem value="none">None</SelectItem>
                                   {excelData.length > 0 && Object.keys(excelData[0]).filter(column => column && column.trim()).map(column => (
                                     <SelectItem key={column} value={column}>{column}</SelectItem>
                                   ))}
