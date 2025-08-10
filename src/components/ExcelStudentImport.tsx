@@ -208,20 +208,25 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
         }
       }
 
-      // Check if student already exists
+      // Check if student already exists and find next available year
       if (student.student_id) {
-        const { data: existingStudent } = await supabase
+        const { data: existingStudents } = await supabase
           .from('students')
-          .select('student_id, year_joined')
-          .eq('student_id', student.student_id)
-          .maybeSingle();
+          .select('student_id, year_joined, full_name')
+          .eq('full_name', student.full_name)
+          .order('year_joined', { ascending: false });
 
-        if (existingStudent) {
-          // Student exists, add for next year
-          const nextYear = existingStudent.year_joined + 1;
+        if (existingStudents && existingStudents.length > 0) {
+          // Find the highest year for this student and add them for the next year
+          const latestYear = Math.max(...existingStudents.map(s => s.year_joined));
+          const nextYear = latestYear + 1;
+          
           student.year_joined = nextYear;
           student.student_id = await generateStudentId(student.full_name, nextYear);
-          student.errors.push(`Student already exists, added for year ${nextYear}`);
+          student.errors.push(`Student exists, adding for year ${nextYear}`);
+          
+          // This is still valid since we're adding them for a new year
+          // Don't mark as invalid
         }
       }
 
