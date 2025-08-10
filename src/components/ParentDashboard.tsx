@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentCard, Student } from "./StudentCard";
 import { ParentFeeView } from "./ParentFeeView";
@@ -33,6 +34,7 @@ export const ParentDashboard = ({
 }: ParentDashboardProps = {}) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+  const [allStudentFees, setAllStudentFees] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -96,6 +98,9 @@ export const ParentDashboard = ({
         `)
         .in('student_id', studentIds)
         .order('created_at', { ascending: false });
+
+      // Store all fees for overview section
+      setAllStudentFees(feesData || []);
 
       if (feesError) {
         console.error('Error fetching fees:', feesError);
@@ -219,6 +224,23 @@ export const ParentDashboard = ({
     };
   }, []);
 
+  const handlePaySpecificFee = async (feeId: string, studentName: string, monthName: string, amount: number) => {
+    try {
+      // Show loading toast
+      const loadingToast = toast.loading(`Redirecting to BML Gateway for ${monthName} payment...`);
+
+      // In a real implementation, this would redirect to BML Gateway
+      setTimeout(() => {
+        toast.dismiss(loadingToast);
+        toast.success(`Payment gateway opened for ${studentName} - ${monthName} (MVR ${amount.toLocaleString()})`);
+        console.log("BML Gateway integration - Fee ID:", feeId);
+      }, 1500);
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error("Failed to initiate payment. Please try again.");
+    }
+  };
+
   const handlePayFee = async (studentId: string) => {
     const student = students.find(s => s.id === studentId);
     if (student && student.currentFee.status !== 'paid') {
@@ -281,10 +303,10 @@ export const ParentDashboard = ({
               Welcome to WAFA Preschool Monthly Fee Management Portal
             </div>
 
-            {/* Student Cards */}
+            {/* Unpaid Fees Section */}
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h2 className="font-bold text-lg">Your Children</h2>
+                <h2 className="font-bold text-lg">Unpaid Fees</h2>
               </div>
 
               {loading ? (
@@ -296,19 +318,89 @@ export const ParentDashboard = ({
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-4">
                   {students.length > 0 ? (
-                    students.map(student => (
-                      <StudentCard
-                        key={student.id}
-                        student={student}
-                        onPayFee={handlePayFee}
-                        onViewDetails={handleViewHistory}
-                        isParentView={true}
-                      />
-                    ))
+                    students.map(student => {
+                      // Get all unpaid fees for this student
+                      const unpaidFees = allStudentFees
+                        .filter(fee => fee.student_id === student.id && (fee.status === 'pending' || fee.status === 'overdue'))
+                        .sort((a, b) => new Date(a.school_months.due_date).getTime() - new Date(b.school_months.due_date).getTime());
+
+                      if (unpaidFees.length === 0) {
+                        return (
+                          <Card key={student.id} className="border-l-4 border-l-success">
+                            <CardContent className="pt-6">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <CheckCircle className="h-5 w-5 text-success" />
+                                  <div>
+                                    <h3 className="font-semibold">{student.name}</h3>
+                                    <p className="text-sm text-muted-foreground">All fees up to date</p>
+                                  </div>
+                                </div>
+                                <Badge variant="default" className="bg-success text-success-foreground">
+                                  Paid Up
+                                </Badge>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      }
+
+                      return (
+                        <Card key={student.id} className="border-l-4 border-l-warning">
+                          <CardHeader>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <CardTitle className="flex items-center gap-2">
+                                  <AlertCircle className="h-5 w-5 text-warning" />
+                                   {student.name}
+                                 </CardTitle>
+                                 <CardDescription>Class: {student.class}</CardDescription>
+                              </div>
+                              <Badge variant="secondary" className="bg-warning text-warning-foreground">
+                                {unpaidFees.length} Unpaid
+                              </Badge>
+                            </div>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {unpaidFees.map(fee => (
+                                <div key={fee.id} className="flex items-center justify-between p-3 rounded-lg border bg-background">
+                                  <div>
+                                    <p className="font-medium">
+                                      {fee.school_months.month_name} {fee.school_months.school_years.year}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Due: {new Date(fee.school_months.due_date).toLocaleDateString()}
+                                    </p>
+                                    <p className="text-sm font-semibold">MVR {fee.amount.toLocaleString()}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {fee.status === 'overdue' ? (
+                                      <Badge variant="destructive">Overdue</Badge>
+                                    ) : (
+                                      <Badge variant="secondary" className="bg-warning text-warning-foreground">Pending</Badge>
+                                    )}
+                                    <Button
+                                      onClick={() => handlePaySpecificFee(fee.id, student.name, fee.school_months.month_name, fee.amount)}
+                                      variant={fee.status === 'overdue' ? "destructive" : "default"}
+                                      size="sm"
+                                      className="ml-2"
+                                    >
+                                      <CreditCard className="h-4 w-4 mr-1" />
+                                      Pay Now
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })
                   ) : (
-                    <div className="col-span-full text-center py-8">
+                    <div className="text-center py-8">
                       <p className="text-muted-foreground">No students found</p>
                     </div>
                   )}
