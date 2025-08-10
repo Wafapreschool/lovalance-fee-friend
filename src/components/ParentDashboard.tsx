@@ -379,134 +379,138 @@ export const ParentDashboard = ({
               ) : (
                 <div className="space-y-4">
                   {(() => {
-                    // Get students with unpaid fees
-                    const studentsWithUnpaidFees = students.filter(student => {
+                    // Create a map to track unique students with pending payments
+                    const studentsWithPendingPayments = new Map();
+
+                    // Add students with unpaid fees
+                    students.forEach(student => {
                       const unpaidFees = allStudentFees.filter(fee => 
                         fee.student_id === student.id && 
                         (fee.status === 'pending' || fee.status === 'overdue')
                       );
-                      return unpaidFees.length > 0;
+
+                      if (unpaidFees.length > 0) {
+                        studentsWithPendingPayments.set(student.id, {
+                          student,
+                          unpaidFees: unpaidFees.sort((a, b) => 
+                            new Date(a.school_months.due_date).getTime() - new Date(b.school_months.due_date).getTime()
+                          ),
+                          pendingOtherPayments: []
+                        });
+                      }
                     });
 
-                    // Get students with pending other payments
-                    const studentsWithPendingOtherPayments = students.filter(student => {
+                    // Add or update students with pending other payments
+                    students.forEach(student => {
                       const pendingOtherPayments = otherPayments.filter(payment => 
                         payment.student_id === student.id && 
                         payment.status === 'pending'
                       );
-                      return pendingOtherPayments.length > 0;
+
+                      if (pendingOtherPayments.length > 0) {
+                        if (studentsWithPendingPayments.has(student.id)) {
+                          studentsWithPendingPayments.get(student.id).pendingOtherPayments = pendingOtherPayments;
+                        } else {
+                          studentsWithPendingPayments.set(student.id, {
+                            student,
+                            unpaidFees: [],
+                            pendingOtherPayments
+                          });
+                        }
+                      }
                     });
 
-                    // Combine and deduplicate students
-                    const studentsWithPendingPayments = [
-                      ...studentsWithUnpaidFees,
-                      ...studentsWithPendingOtherPayments.filter(student => 
-                        !studentsWithUnpaidFees.find(s => s.id === student.id)
-                      )
-                    ];
+                    const studentsArray = Array.from(studentsWithPendingPayments.values());
 
-                    if (studentsWithPendingPayments.length === 0) {
+                    if (studentsArray.length === 0) {
                       return (
                         <div className="text-center py-8">
                           <CheckCircle className="h-16 w-16 text-success mx-auto mb-4" />
-                          <h3 className="text-lg font-semibold text-success mb-2">All Payments Up to Date!</h3>
-                          <p className="text-muted-foreground">No pending fees or other payments found</p>
+                          <h3 className="text-lg font-semibold text-success mb-2">No Pending Payments!</h3>
+                          <p className="text-muted-foreground">All fees and other payments are up to date</p>
                         </div>
                       );
                     }
 
-                    return studentsWithPendingPayments.map(student => {
-                      // Get unpaid fees for this student
-                      const unpaidFees = allStudentFees
-                        .filter(fee => fee.student_id === student.id && (fee.status === 'pending' || fee.status === 'overdue'))
-                        .sort((a, b) => new Date(a.school_months.due_date).getTime() - new Date(b.school_months.due_date).getTime());
-
-                      // Get pending other payments for this student
-                      const pendingOtherPayments = otherPayments.filter(payment => 
-                        payment.student_id === student.id && 
-                        payment.status === 'pending'
-                      );
-
-                      return (
-                        <Card key={student.id} className="border-l-4 border-l-warning">
-                          <CardHeader>
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <CardTitle className="flex items-center gap-2">
-                                  <AlertCircle className="h-5 w-5 text-warning" />
-                                  {student.name}
-                                </CardTitle>
-                                <CardDescription>Class: {student.class}</CardDescription>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="secondary" className="bg-warning text-warning-foreground">
-                                  {unpaidFees.length + pendingOtherPayments.length} Pending
-                                </Badge>
-                              </div>
+                    return studentsArray.map(({ student, unpaidFees, pendingOtherPayments }) => (
+                      <Card key={student.id} className="border-l-4 border-l-warning">
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <CardTitle className="flex items-center gap-2">
+                                <AlertCircle className="h-5 w-5 text-warning" />
+                                {student.name}
+                              </CardTitle>
+                              <CardDescription>Class: {student.class}</CardDescription>
                             </div>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="space-y-3">
-                              {/* Unpaid Fees */}
-                              {unpaidFees.map(fee => (
-                                <div key={fee.id} className="flex items-center justify-between p-3 rounded-lg border bg-background">
-                                  <div>
-                                    <p className="font-medium">
-                                      {fee.school_months.month_name} {fee.school_months.school_years.year}
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                      Due: {new Date(fee.school_months.due_date).toLocaleDateString()}
-                                    </p>
-                                    <p className="text-sm font-semibold">MVR {fee.amount.toLocaleString()}</p>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    {fee.status === 'overdue' ? (
-                                      <Badge variant="destructive">Overdue</Badge>
-                                    ) : (
-                                      <Badge variant="secondary" className="bg-warning text-warning-foreground">Pending</Badge>
-                                    )}
-                                    <Button
-                                      onClick={() => handlePaySpecificFee(fee.id, student.name, fee.school_months.month_name, fee.amount)}
-                                      variant={fee.status === 'overdue' ? "destructive" : "default"}
-                                      size="sm"
-                                      className="ml-2"
-                                    >
-                                      <CreditCard className="h-4 w-4 mr-1" />
-                                      Pay Now
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))}
-                              
-                              {/* Pending Other Payments */}
-                              {pendingOtherPayments.map(payment => (
-                                <div key={payment.id} className="flex items-center justify-between p-3 rounded-lg border bg-blue-50">
-                                  <div>
-                                    <p className="font-medium">{payment.payment_name}</p>
-                                    <p className="text-sm text-muted-foreground">
-                                      Added: {new Date(payment.created_at).toLocaleDateString()}
-                                    </p>
-                                    <p className="text-sm font-semibold text-blue-700">MVR {payment.amount.toLocaleString()}</p>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="secondary" className="bg-blue-100 text-blue-700">Other Payment</Badge>
-                                    <Button
-                                      onClick={() => handlePayOtherPayment(payment.id, student.name, payment.payment_name, payment.amount)}
-                                      variant="default"
-                                      size="sm"
-                                      className="ml-2 bg-blue-600 hover:bg-blue-700"
-                                    >
-                                      <CreditCard className="h-4 w-4 mr-1" />
-                                      Pay Now
-                                    </Button>
-                                  </div>
-                                </div>
-                              ))}
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="bg-warning text-warning-foreground">
+                                {unpaidFees.length + pendingOtherPayments.length} Pending
+                              </Badge>
                             </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    });
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {/* Unpaid Monthly Fees */}
+                            {unpaidFees.map(fee => (
+                              <div key={`fee-${fee.id}`} className="flex items-center justify-between p-3 rounded-lg border bg-background">
+                                <div>
+                                  <p className="font-medium">
+                                    {fee.school_months.month_name} {fee.school_months.school_years.year}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Due: {new Date(fee.school_months.due_date).toLocaleDateString()}
+                                  </p>
+                                  <p className="text-sm font-semibold">MVR {fee.amount.toLocaleString()}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {fee.status === 'overdue' ? (
+                                    <Badge variant="destructive">Overdue</Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="bg-warning text-warning-foreground">Pending</Badge>
+                                  )}
+                                  <Button
+                                    onClick={() => handlePaySpecificFee(fee.id, student.name, fee.school_months.month_name, fee.amount)}
+                                    variant={fee.status === 'overdue' ? "destructive" : "default"}
+                                    size="sm"
+                                    className="ml-2"
+                                  >
+                                    <CreditCard className="h-4 w-4 mr-1" />
+                                    Pay Now
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                            
+                            {/* Pending Other Payments */}
+                            {pendingOtherPayments.map(payment => (
+                              <div key={`other-${payment.id}`} className="flex items-center justify-between p-3 rounded-lg border bg-blue-50">
+                                <div>
+                                  <p className="font-medium">{payment.payment_name}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Added: {new Date(payment.created_at).toLocaleDateString()}
+                                  </p>
+                                  <p className="text-sm font-semibold text-blue-700">MVR {payment.amount.toLocaleString()}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">Other Payment</Badge>
+                                  <Button
+                                    onClick={() => handlePayOtherPayment(payment.id, student.name, payment.payment_name, payment.amount)}
+                                    variant="default"
+                                    size="sm"
+                                    className="ml-2 bg-blue-600 hover:bg-blue-700"
+                                  >
+                                    <CreditCard className="h-4 w-4 mr-1" />
+                                    Pay Now
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ));
                   })()}
                 </div>
               )}
