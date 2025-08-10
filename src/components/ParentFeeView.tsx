@@ -91,11 +91,21 @@ export const ParentFeeView = ({
       fetchFeeData();
     }).subscribe();
 
+    const otherPaymentsChannel = supabase.channel('other-payments-updates').on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'other_payments'
+    }, () => {
+      console.log('Other payments updated, refreshing fee data...');
+      fetchFeeData();
+    }).subscribe();
+
     return () => {
       supabase.removeChannel(feesChannel);
       supabase.removeChannel(monthsChannel);
       supabase.removeChannel(yearsChannel);
       supabase.removeChannel(studentsChannel);
+      supabase.removeChannel(otherPaymentsChannel);
     };
   }, [currentUser?.id]); // Add dependency on currentUser?.id
   const fetchFeeData = async () => {
@@ -322,70 +332,92 @@ export const ParentFeeView = ({
             
             <CardContent>
               <Accordion type="single" collapsible className="w-full">
-                {schoolYears.map(year => {
-              const studentFeesForYear = getFeesForYearAndStudent(year.id, student.id);
-              const monthsForYear = getMonthsForYear(year.id);
-              if (monthsForYear.length === 0) return null;
-              return <AccordionItem key={year.id} value={year.id}>
-                      <AccordionTrigger className="text-lg font-semibold">
-                        Academic Year {year.year}
-                        {year.is_active && <Badge variant="default" className="ml-2">Current</Badge>}
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="grid gap-4">
-                          {monthsForYear.map(month => {
-                      const fee = studentFeesForYear.find(f => f.school_month_id === month.id);
-                      if (!fee) {
-                        return <div key={month.id} className="p-4 border rounded-lg bg-muted/30">
-                                  <div className="flex justify-between items-center">
-                                    <div>
-                                      <h4 className="font-medium">{month.month_name}</h4>
-                                      <p className="text-sm text-muted-foreground">
-                                        No fee assigned yet
-                                      </p>
+                {(() => {
+                  // Get unique years that have fees assigned for this student
+                  const studentFeesForStudent = studentFees.filter(fee => fee.student_id === student.id);
+                  const yearIdsWithFees = [...new Set(studentFeesForStudent.map(fee => fee.school_months.school_year_id))];
+                  
+                  // Filter school years to only show years with fees
+                  const yearsWithFees = schoolYears.filter(year => yearIdsWithFees.includes(year.id));
+                  
+                  return yearsWithFees.map(year => {
+                    const studentFeesForYear = getFeesForYearAndStudent(year.id, student.id);
+                    const monthsForYear = getMonthsForYear(year.id);
+                    
+                    // Only show months that have fees assigned
+                    const monthsWithFees = monthsForYear.filter(month => 
+                      studentFeesForYear.some(fee => fee.school_month_id === month.id)
+                    );
+                    
+                    if (monthsWithFees.length === 0) return null;
+                    
+                    return (
+                      <AccordionItem key={year.id} value={year.id}>
+                        <AccordionTrigger className="text-lg font-semibold">
+                          Academic Year {year.year}
+                          {year.is_active && <Badge variant="default" className="ml-2">Current</Badge>}
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="grid gap-4">
+                            {monthsWithFees.map(month => {
+                              const fee = studentFeesForYear.find(f => f.school_month_id === month.id);
+                              
+                              return (
+                                <div key={fee.id} className="p-4 border bg-background rounded">
+                                  <div className="flex justify-between items-center rounded-sm">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-3 mb-2">
+                                        <h4 className="font-medium">{month.month_name}</h4>
+                                        {getStatusBadge(fee.status, month.due_date)}
+                                      </div>
+                                      <div className="text-sm text-muted-foreground space-y-1">
+                                        <p>Amount: MVR {fee.amount.toLocaleString()}</p>
+                                        <p>Due Date: {new Date(month.due_date).toLocaleDateString()}</p>
+                                        {fee.payment_date && <p>Paid: {new Date(fee.payment_date).toLocaleDateString()}</p>}
+                                        {fee.transaction_id && <p>Transaction ID: {fee.transaction_id}</p>}
+                                      </div>
                                     </div>
-                                    <Badge variant="outline">Not Available</Badge>
-                                  </div>
-                                </div>;
-                      }
-                      return <div key={fee.id} className="p-4 border bg-background rounded">
-                                <div className="flex justify-between items-center rounded-sm">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-2">
-                                      <h4 className="font-medium">{month.month_name}</h4>
-                                      {getStatusBadge(fee.status, month.due_date)}
+                                    
+                                    <div className="ml-4">
+                                      {fee.status === 'pending' && (
+                                        <Button 
+                                          onClick={() => handlePayment(fee.id, student.full_name, month.month_name, fee.amount)} 
+                                          variant="gradient" 
+                                          className="flex items-center gap-2"
+                                        >
+                                          <CreditCard className="h-4 w-4" />
+                                          Pay Now
+                                          <ExternalLink className="h-3 w-3" />
+                                        </Button>
+                                      )}
+                                      {fee.status === 'overdue' && (
+                                        <Button 
+                                          onClick={() => handlePayment(fee.id, student.full_name, month.month_name, fee.amount)} 
+                                          variant="destructive" 
+                                          className="flex items-center gap-2"
+                                        >
+                                          <AlertCircle className="h-4 w-4" />
+                                          Pay Overdue
+                                          <ExternalLink className="h-3 w-3" />
+                                        </Button>
+                                      )}
+                                      {fee.status === 'paid' && (
+                                        <div className="text-success font-medium flex items-center gap-2">
+                                          <CheckCircle className="h-4 w-4" />
+                                          Paid
+                                        </div>
+                                      )}
                                     </div>
-                                    <div className="text-sm text-muted-foreground space-y-1">
-                                      <p>Amount: MVR {fee.amount.toLocaleString()}</p>
-                                      <p>Due Date: {new Date(month.due_date).toLocaleDateString()}</p>
-                                      {fee.payment_date && <p>Paid: {new Date(fee.payment_date).toLocaleDateString()}</p>}
-                                      {fee.transaction_id && <p>Transaction ID: {fee.transaction_id}</p>}
-                                    </div>
-                                  </div>
-                                  
-                                  <div className="ml-4">
-                                    {fee.status === 'pending' && <Button onClick={() => handlePayment(fee.id, student.full_name, month.month_name, fee.amount)} variant="gradient" className="flex items-center gap-2">
-                                        <CreditCard className="h-4 w-4" />
-                                        Pay Now
-                                        <ExternalLink className="h-3 w-3" />
-                                      </Button>}
-                                    {fee.status === 'overdue' && <Button onClick={() => handlePayment(fee.id, student.full_name, month.month_name, fee.amount)} variant="destructive" className="flex items-center gap-2">
-                                        <AlertCircle className="h-4 w-4" />
-                                        Pay Overdue
-                                        <ExternalLink className="h-3 w-3" />
-                                      </Button>}
-                                    {fee.status === 'paid' && <div className="text-success font-medium flex items-center gap-2">
-                                        <CheckCircle className="h-4 w-4" />
-                                        Paid
-                                      </div>}
                                   </div>
                                 </div>
-                              </div>;
-                    })}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>;
-            })}
+                              );
+                            })}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  });
+                })()}
               </Accordion>
             </CardContent>
             
