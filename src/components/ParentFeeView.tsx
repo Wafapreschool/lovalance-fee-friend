@@ -115,13 +115,32 @@ export const ParentFeeView = ({
       } = await supabase.from('school_months').select('*').order('month_number');
       if (monthsError) throw monthsError;
 
+      // First, get the current student's data to find their parent phone
+      const {
+        data: currentStudentData,
+        error: currentStudentError
+      } = await supabase
+        .from('students')
+        .select('parent_phone')
+        .eq('id', currentUser?.id)
+        .single();
+
+      if (currentStudentError || !currentStudentData) {
+        console.error('Error fetching current student:', currentStudentError);
+        setStudents([]);
+        setLoading(false);
+        return;
+      }
+
+      const parentPhone = currentStudentData.parent_phone;
+
       // Fetch only current user's student data - using parent_phone
       const {
         data: studentsData,
         error: studentsError
-      } = await supabase.from('students').select('*').eq('parent_phone', currentUser?.id).order('full_name');
+      } = await supabase.from('students').select('*').eq('parent_phone', parentPhone).order('full_name');
       
-      console.log('ParentFeeView - Fetching students for parent phone:', currentUser?.id);
+      console.log('ParentFeeView - Fetching students for parent phone:', parentPhone);
       console.log('ParentFeeView - Students found:', studentsData);
       if (studentsError) throw studentsError;
 

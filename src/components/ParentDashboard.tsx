@@ -56,17 +56,36 @@ export const ParentDashboard = ({
 
   const fetchStudentsData = async () => {
     try {
-      // First, get students data - assuming parent_phone matches current user identifier
+      // First, get the current student's data to find their parent phone
+      const {
+        data: currentStudentData,
+        error: currentStudentError
+      } = await supabase
+        .from('students')
+        .select('parent_phone')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (currentStudentError || !currentStudentData) {
+        console.error('Error fetching current student:', currentStudentError);
+        toast.error("Failed to load student data");
+        return;
+      }
+
+      const parentPhone = currentStudentData.parent_phone;
+      console.log('Parent phone found:', parentPhone);
+
+      // Now get all students for this parent
       const {
         data: studentsData,
         error: studentsError
       } = await supabase
         .from('students')
         .select('*')
-        .eq('parent_phone', currentUser.id) // Assuming currentUser.id contains parent phone
+        .eq('parent_phone', parentPhone)
         .order('created_at', { ascending: false });
 
-      console.log('Fetching students for parent phone:', currentUser.id);
+      console.log('Fetching students for parent phone:', parentPhone);
       console.log('Students found:', studentsData);
 
       if (studentsError) {
