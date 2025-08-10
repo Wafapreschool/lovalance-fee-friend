@@ -53,30 +53,50 @@ export const ParentFeeView = ({
   useEffect(() => {
     fetchFeeData();
 
-    // Set up real-time subscription for fee updates
-    const channel = supabase.channel('fee-updates').on('postgres_changes', {
+    // Set up real-time subscription for fee updates with multiple channels
+    const feesChannel = supabase.channel('fee-updates').on('postgres_changes', {
       event: '*',
       schema: 'public',
       table: 'student_fees'
     }, () => {
+      console.log('Student fees updated, refreshing fee data...');
       fetchFeeData();
-    }).on('postgres_changes', {
+    }).subscribe();
+
+    const monthsChannel = supabase.channel('school-months-updates').on('postgres_changes', {
       event: '*',
       schema: 'public',
       table: 'school_months'
     }, () => {
+      console.log('School months updated, refreshing fee data...');
       fetchFeeData();
-    }).on('postgres_changes', {
+    }).subscribe();
+
+    const yearsChannel = supabase.channel('school-years-updates').on('postgres_changes', {
       event: '*',
       schema: 'public',
       table: 'school_years'
     }, () => {
+      console.log('School years updated, refreshing fee data...');
       fetchFeeData();
     }).subscribe();
+
+    const studentsChannel = supabase.channel('students-updates').on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'students'
+    }, () => {
+      console.log('Students updated, refreshing fee data...');
+      fetchFeeData();
+    }).subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(feesChannel);
+      supabase.removeChannel(monthsChannel);
+      supabase.removeChannel(yearsChannel);
+      supabase.removeChannel(studentsChannel);
     };
-  }, []);
+  }, [currentUser?.id]); // Add dependency on currentUser?.id
   const fetchFeeData = async () => {
     try {
       // Fetch school years
@@ -100,6 +120,9 @@ export const ParentFeeView = ({
         data: studentsData,
         error: studentsError
       } = await supabase.from('students').select('*').eq('parent_phone', currentUser?.id).order('full_name');
+      
+      console.log('ParentFeeView - Fetching students for parent phone:', currentUser?.id);
+      console.log('ParentFeeView - Students found:', studentsData);
       if (studentsError) throw studentsError;
 
       if (!studentsData || studentsData.length === 0) {

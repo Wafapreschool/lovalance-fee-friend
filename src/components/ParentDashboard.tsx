@@ -66,6 +66,9 @@ export const ParentDashboard = ({
         .eq('parent_phone', currentUser.id) // Assuming currentUser.id contains parent phone
         .order('created_at', { ascending: false });
 
+      console.log('Fetching students for parent phone:', currentUser.id);
+      console.log('Students found:', studentsData);
+
       if (studentsError) {
         console.error('Error fetching students:', studentsError);
         toast.error("Failed to load students");
@@ -201,6 +204,7 @@ export const ParentDashboard = ({
       console.log('Students updated, refreshing data...');
       fetchStudentsData();
     }).subscribe();
+    
     const feesChannel = supabase.channel('fees-changes').on('postgres_changes', {
       event: '*',
       schema: 'public',
@@ -209,6 +213,7 @@ export const ParentDashboard = ({
       console.log('Student fees updated, refreshing data...');
       fetchStudentsData();
     }).subscribe();
+    
     const schoolMonthsChannel = supabase.channel('school-months-changes').on('postgres_changes', {
       event: '*',
       schema: 'public',
@@ -217,12 +222,23 @@ export const ParentDashboard = ({
       console.log('School months updated, refreshing data...');
       fetchStudentsData();
     }).subscribe();
+
+    const schoolYearsChannel = supabase.channel('school-years-changes').on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'school_years'
+    }, () => {
+      console.log('School years updated, refreshing data...');
+      fetchStudentsData();
+    }).subscribe();
+    
     return () => {
       supabase.removeChannel(studentsChannel);
       supabase.removeChannel(feesChannel);
       supabase.removeChannel(schoolMonthsChannel);
+      supabase.removeChannel(schoolYearsChannel);
     };
-  }, []);
+  }, [currentUser.id]); // Add dependency on currentUser.id
 
   const handlePaySpecificFee = async (feeId: string, studentName: string, monthName: string, amount: number) => {
     try {
