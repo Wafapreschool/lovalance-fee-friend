@@ -285,27 +285,64 @@ export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStu
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('students')
-        .insert(validStudents.map(student => ({
-          student_id: student.student_id,
-          full_name: student.full_name,
-          class_name: student.class_name,
-          year_joined: student.year_joined,
-          parent_phone: student.parent_phone,
-          password: student.password
-        })));
+      // Insert students one by one to handle duplicates gracefully
+      let successCount = 0;
+      let duplicateCount = 0;
+      
+      for (const student of validStudents) {
+        try {
+          const { error } = await supabase
+            .from('students')
+            .insert({
+              student_id: student.student_id,
+              full_name: student.full_name,
+              class_name: student.class_name,
+              year_joined: student.year_joined,
+              parent_phone: student.parent_phone,
+              password: student.password
+            });
 
-      if (error) {
-        console.error('Error importing students:', error);
-        toast.error("Failed to import students");
-        return;
+          if (error) {
+            if (error.code === '23505') {
+              // Duplicate key error, try with new ID
+              const newStudentId = await generateStudentId(student.full_name, student.year_joined);
+              const { error: retryError } = await supabase
+                .from('students')
+                .insert({
+                  student_id: newStudentId,
+                  full_name: student.full_name,
+                  class_name: student.class_name,
+                  year_joined: student.year_joined,
+                  parent_phone: student.parent_phone,
+                  password: student.password
+                });
+              
+              if (!retryError) {
+                successCount++;
+              } else {
+                duplicateCount++;
+                console.warn(`Could not import duplicate student: ${student.full_name}`);
+              }
+            } else {
+              throw error;
+            }
+          } else {
+            successCount++;
+          }
+        } catch (individualError) {
+          console.error('Error importing individual student:', individualError);
+          duplicateCount++;
+        }
       }
 
-      toast.success(`Successfully imported ${validStudents.length} students`);
-      onStudentsImported();
-      resetForm();
-      setOpen(false);
+      if (successCount > 0) {
+        toast.success(`Successfully imported ${successCount} students${duplicateCount > 0 ? ` (${duplicateCount} duplicates skipped)` : ''}`);
+        onStudentsImported();
+        resetForm();
+        setOpen(false);
+      } else {
+        toast.error("No students were imported");
+      }
     } catch (error) {
       console.error('Error:', error);
       toast.error("An error occurred while importing students");

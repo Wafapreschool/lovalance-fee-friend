@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ExcelStudentImport } from "./ExcelStudentImport";
-import { Users, Eye, Edit, Trash2, Plus } from "lucide-react";
+import { Users, Eye, Edit, Trash2, Plus, CheckSquare, Square } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AddStudentForm } from "./AddStudentForm";
@@ -53,6 +53,8 @@ export const YearBasedStudentManagement = () => {
   const [yearToEdit, setYearToEdit] = useState<SchoolYear | null>(null);
   const [yearToDelete, setYearToDelete] = useState<SchoolYear | null>(null);
   const [editYearValue, setEditYearValue] = useState<string>("");
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 
   const fetchSchoolYears = async () => {
     try {
@@ -157,7 +159,60 @@ export const YearBasedStudentManagement = () => {
     if (selectedYear) {
       fetchStudentsForYear(selectedYear.year);
     }
+    setSelectedStudents([]);
     fetchSchoolYears();
+  };
+
+  const handleSelectAll = () => {
+    if (selectedStudents.length === students.length) {
+      setSelectedStudents([]);
+    } else {
+      setSelectedStudents(students.map(s => s.id));
+    }
+  };
+
+  const handleSelectStudent = (studentId: string) => {
+    setSelectedStudents(prev => 
+      prev.includes(studentId) 
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedStudents.length === 0) {
+      toast.error("Please select students to delete");
+      return;
+    }
+    setShowBulkDeleteDialog(true);
+  };
+
+  const confirmBulkDelete = async () => {
+    if (selectedStudents.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('students')
+        .delete()
+        .in('id', selectedStudents);
+
+      if (error) {
+        console.error('Error deleting students:', error);
+        toast.error("Failed to delete students");
+        return;
+      }
+
+      toast.success(`Successfully deleted ${selectedStudents.length} student${selectedStudents.length > 1 ? 's' : ''}`);
+      setSelectedStudents([]);
+      if (selectedYear) {
+        fetchStudentsForYear(selectedYear.year);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error("An error occurred while deleting students");
+    } finally {
+      setShowBulkDeleteDialog(false);
+    }
   };
 
   const handleAddYear = async () => {
@@ -425,55 +480,100 @@ export const YearBasedStudentManagement = () => {
                 ))}
               </div>
             ) : students.length > 0 ? (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Student ID</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Class</TableHead>
-                      <TableHead>Parent Phone</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {students.map((student) => (
-                      <TableRow key={student.id}>
-                        <TableCell className="font-medium">{student.student_id}</TableCell>
-                        <TableCell>{student.full_name}</TableCell>
-                        <TableCell>{student.class_name}</TableCell>
-                        <TableCell>{student.parent_phone}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewStudent(student.id)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditStudent(student.id)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteStudent(student.id)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
+              <>
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSelectAll}
+                      className="flex items-center gap-2"
+                    >
+                      {selectedStudents.length === students.length ? (
+                        <CheckSquare className="h-4 w-4" />
+                      ) : (
+                        <Square className="h-4 w-4" />
+                      )}
+                      Select All
+                    </Button>
+                    {selectedStudents.length > 0 && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleBulkDelete}
+                        className="flex items-center gap-2"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete Selected ({selectedStudents.length})
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">Select</TableHead>
+                        <TableHead>Student ID</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Class</TableHead>
+                        <TableHead>Parent Phone</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {students.map((student) => (
+                        <TableRow key={student.id}>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSelectStudent(student.id)}
+                              className="p-1"
+                            >
+                              {selectedStudents.includes(student.id) ? (
+                                <CheckSquare className="h-4 w-4" />
+                              ) : (
+                                <Square className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="font-medium">{student.student_id}</TableCell>
+                          <TableCell>{student.full_name}</TableCell>
+                          <TableCell>{student.class_name}</TableCell>
+                          <TableCell>{student.parent_phone}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleViewStudent(student.id)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditStudent(student.id)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteStudent(student.id)}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">No students found for this year</p>
@@ -599,6 +699,23 @@ export const YearBasedStudentManagement = () => {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteStudent} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Multiple Students</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedStudents.length} selected student{selectedStudents.length > 1 ? 's' : ''}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete {selectedStudents.length} Student{selectedStudents.length > 1 ? 's' : ''}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
