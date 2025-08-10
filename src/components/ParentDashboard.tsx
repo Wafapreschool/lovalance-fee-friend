@@ -80,7 +80,7 @@ export const ParentDashboard = ({
       // Get student IDs for fee queries
       const studentIds = studentsData.map(s => s.id);
 
-      // Fetch actual fees from student_fees table with related data
+      // Fetch all fees from student_fees table with related data
       const {
         data: feesData,
         error: feesError
@@ -88,11 +88,6 @@ export const ParentDashboard = ({
         .from('student_fees')
         .select(`
           *,
-          students!inner(
-            id,
-            full_name,
-            class_name
-          ),
           school_months!inner(
             month_name,
             due_date,
@@ -108,43 +103,62 @@ export const ParentDashboard = ({
         return;
       }
 
-      // Transform students data with their actual unpaid fees
+      // Transform students data with their most recent unpaid fees or latest fee
       const transformedStudents: Student[] = studentsData.map(student => {
-        // Find the most recent unpaid fee for this student
-        const unpaidFee = feesData?.find(fee => 
+        // Find unpaid fees for this student (pending or overdue)
+        const unpaidFees = feesData?.filter(fee => 
           fee.student_id === student.id && 
           (fee.status === 'pending' || fee.status === 'overdue')
-        );
+        ) || [];
 
-        if (unpaidFee) {
+        // If there are unpaid fees, show the most recent one
+        if (unpaidFees.length > 0) {
+          const mostRecentUnpaid = unpaidFees[0]; // Already sorted by created_at desc
           return {
             id: student.id,
             name: student.full_name,
             class: student.class_name,
             yearJoined: student.year_joined,
             currentFee: {
-              month: unpaidFee.school_months.month_name,
-              year: unpaidFee.school_months.school_years.year,
-              amount: unpaidFee.amount,
-              status: unpaidFee.status as "pending" | "paid" | "overdue",
-              dueDate: unpaidFee.school_months.due_date
+              month: mostRecentUnpaid.school_months.month_name,
+              year: mostRecentUnpaid.school_months.school_years.year,
+              amount: mostRecentUnpaid.amount,
+              status: mostRecentUnpaid.status as "pending" | "paid" | "overdue",
+              dueDate: new Date(mostRecentUnpaid.school_months.due_date).toLocaleDateString()
             }
           };
         } else {
           // No unpaid fees - show as paid up
-          return {
-            id: student.id,
-            name: student.full_name,
-            class: student.class_name,
-            yearJoined: student.year_joined,
-            currentFee: {
-              month: "All fees",
-              year: new Date().getFullYear(),
-              amount: 0,
-              status: "paid",
-              dueDate: new Date().toISOString().split('T')[0]
-            }
-          };
+          const latestFee = feesData?.find(fee => fee.student_id === student.id);
+          if (latestFee) {
+            return {
+              id: student.id,
+              name: student.full_name,
+              class: student.class_name,
+              yearJoined: student.year_joined,
+              currentFee: {
+                month: latestFee.school_months.month_name,
+                year: latestFee.school_months.school_years.year,
+                amount: latestFee.amount,
+                status: "paid",
+                dueDate: new Date(latestFee.school_months.due_date).toLocaleDateString()
+              }
+            };
+          } else {
+            return {
+              id: student.id,
+              name: student.full_name,
+              class: student.class_name,
+              yearJoined: student.year_joined,
+              currentFee: {
+                month: "No fees assigned",
+                year: new Date().getFullYear(),
+                amount: 0,
+                status: "paid",
+                dueDate: new Date().toLocaleDateString()
+              }
+            };
+          }
         }
       });
 
@@ -205,11 +219,42 @@ export const ParentDashboard = ({
     };
   }, []);
 
-  const handlePayFee = (studentId: string) => {
+  const handlePayFee = async (studentId: string) => {
     const student = students.find(s => s.id === studentId);
-    if (student) {
-      toast.success(`Redirecting to payment gateway for ${student.name}'s fee...`);
-      console.log("Initiating payment for student:", studentId);
+    if (student && student.currentFee.status !== 'paid') {
+      try {
+        // Find the actual fee record to pay
+        const { data: feeData, error } = await supabase
+          .from('student_fees')
+          .select(`
+            *,
+            school_months!inner(
+              month_name,
+              school_years!inner(year)
+            )
+          `)
+          .eq('student_id', studentId)
+          .eq('status', student.currentFee.status)
+          .single();
+
+        if (error || !feeData) {
+          toast.error("Fee not found");
+          return;
+        }
+
+        // Show loading toast
+        const loadingToast = toast.loading(`Redirecting to BML Gateway for ${student.currentFee.month} payment...`);
+
+        // In a real implementation, this would redirect to BML Gateway
+        setTimeout(() => {
+          toast.dismiss(loadingToast);
+          toast.success(`Payment gateway opened for ${student.name} - ${student.currentFee.month} (MVR ${student.currentFee.amount.toLocaleString()})`);
+          console.log("BML Gateway integration - Fee ID:", feeData.id);
+        }, 1500);
+      } catch (error) {
+        console.error('Payment error:', error);
+        toast.error("Failed to initiate payment. Please try again.");
+      }
     }
   };
 
