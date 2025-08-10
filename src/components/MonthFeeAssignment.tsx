@@ -54,9 +54,21 @@ export const MonthFeeAssignment = ({ month }: MonthFeeAssignmentProps) => {
 
   const fetchStudents = async () => {
     try {
+      // First get the school year for this month
+      const { data: monthData, error: monthError } = await supabase
+        .from('school_months')
+        .select('school_year_id, school_years!inner(year)')
+        .eq('id', month.id)
+        .single();
+
+      if (monthError) throw monthError;
+
+      // Then fetch only students for that year
+      const yearNumber = (monthData as any).school_years.year;
       const { data, error } = await supabase
         .from('students')
         .select('*')
+        .eq('year_joined', yearNumber)
         .order('full_name', { ascending: true });
 
       if (error) throw error;
