@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ExcelStudentImport } from "./ExcelStudentImport";
-import { Users, Eye, Edit, Trash2, Plus, CheckSquare, Square } from "lucide-react";
+import { Users, Eye, Edit, Trash2, Plus, CheckSquare, Square, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AddStudentForm } from "./AddStudentForm";
@@ -37,6 +37,8 @@ export const YearBasedStudentManagement = () => {
   const [schoolYears, setSchoolYears] = useState<SchoolYear[]>([]);
   const [selectedYear, setSelectedYear] = useState<SchoolYear | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [showStudentsDialog, setShowStudentsDialog] = useState(false);
@@ -94,6 +96,7 @@ export const YearBasedStudentManagement = () => {
       }
 
       setStudents(data || []);
+      setFilteredStudents(data || []);
     } catch (error) {
       console.error('Error:', error);
       toast.error("An error occurred while loading students");
@@ -105,6 +108,21 @@ export const YearBasedStudentManagement = () => {
   useEffect(() => {
     fetchSchoolYears();
   }, []);
+
+  // Filter students based on search term
+  useEffect(() => {
+    if (searchTerm) {
+      const filtered = students.filter(student =>
+        student.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.student_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.class_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.parent_phone.includes(searchTerm)
+      );
+      setFilteredStudents(filtered);
+    } else {
+      setFilteredStudents(students);
+    }
+  }, [searchTerm, students]);
 
   const handleViewStudents = (schoolYear: SchoolYear) => {
     setSelectedYear(schoolYear);
@@ -164,10 +182,10 @@ export const YearBasedStudentManagement = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedStudents.length === students.length) {
+    if (selectedStudents.length === filteredStudents.length) {
       setSelectedStudents([]);
     } else {
-      setSelectedStudents(students.map(s => s.id));
+      setSelectedStudents(filteredStudents.map(s => s.id));
     }
   };
 
@@ -452,11 +470,24 @@ export const YearBasedStudentManagement = () => {
           </DialogHeader>
           
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="text-sm text-muted-foreground">
-                {students.length} student{students.length !== 1 ? 's' : ''} found
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <h3 className="text-lg font-semibold">Students for Year {selectedYear?.year}</h3>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    type="text"
+                    placeholder="Search students..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 w-64"
+                  />
+                </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">
+                  {filteredStudents.length} of {students.length} students
+                </Badge>
                 <ExcelStudentImport 
                   onStudentsImported={handleStudentAdded}
                   defaultYear={selectedYear?.year}
@@ -489,12 +520,12 @@ export const YearBasedStudentManagement = () => {
                       onClick={handleSelectAll}
                       className="flex items-center gap-2"
                     >
-                      {selectedStudents.length === students.length ? (
+                      {selectedStudents.length === filteredStudents.length ? (
                         <CheckSquare className="h-4 w-4" />
                       ) : (
                         <Square className="h-4 w-4" />
                       )}
-                      Select All
+                      Select All Visible
                     </Button>
                     {selectedStudents.length > 0 && (
                       <Button
@@ -522,7 +553,7 @@ export const YearBasedStudentManagement = () => {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {students.map((student) => (
+                      {filteredStudents.map((student) => (
                         <TableRow key={student.id}>
                           <TableCell>
                             <Button

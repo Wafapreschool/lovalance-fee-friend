@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { CreditCard, Check, Edit, Trash2, Eye } from "lucide-react";
+import { CreditCard, Check, Edit, Trash2, Eye, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -38,6 +38,8 @@ interface OtherPaymentAssignmentProps {
 export const OtherPaymentAssignment = ({ year }: OtherPaymentAssignmentProps) => {
   const [open, setOpen] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [paymentName, setPaymentName] = useState<string>("");
   const [paymentAmount, setPaymentAmount] = useState<string>("");
@@ -64,6 +66,7 @@ export const OtherPaymentAssignment = ({ year }: OtherPaymentAssignmentProps) =>
 
       if (error) throw error;
       setStudents(data || []);
+      setFilteredStudents(data || []);
     } catch (error) {
       console.error('Error fetching students:', error);
       toast.error("Failed to load students");
@@ -92,6 +95,20 @@ export const OtherPaymentAssignment = ({ year }: OtherPaymentAssignmentProps) =>
     }
   }, [open]);
 
+  // Filter students based on search term
+  useEffect(() => {
+    if (searchTerm) {
+      const filtered = students.filter(student =>
+        student.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.student_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.class_name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredStudents(filtered);
+    } else {
+      setFilteredStudents(students);
+    }
+  }, [searchTerm, students]);
+
   const handleStudentSelection = (studentId: string, checked: boolean) => {
     if (checked) {
       setSelectedStudents(prev => [...prev, studentId]);
@@ -102,7 +119,7 @@ export const OtherPaymentAssignment = ({ year }: OtherPaymentAssignmentProps) =>
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedStudents(students.map(s => s.id));
+      setSelectedStudents(filteredStudents.map(s => s.id));
     } else {
       setSelectedStudents([]);
     }
@@ -257,13 +274,29 @@ export const OtherPaymentAssignment = ({ year }: OtherPaymentAssignmentProps) =>
               </div>
             </div>
 
+            <div className="flex items-center gap-4 mb-4">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  type="text"
+                  placeholder="Search students by name, ID, or class..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Showing {filteredStudents.length} of {students.length} students
+              </div>
+            </div>
+
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="selectAll"
-                checked={selectedStudents.length === students.length && students.length > 0}
+                checked={selectedStudents.length === filteredStudents.length && filteredStudents.length > 0}
                 onCheckedChange={handleSelectAll}
               />
-              <Label htmlFor="selectAll">Select All Students</Label>
+              <Label htmlFor="selectAll">Select All Visible Students</Label>
             </div>
 
             <div className="rounded-md border max-h-[400px] overflow-y-auto">
@@ -280,7 +313,7 @@ export const OtherPaymentAssignment = ({ year }: OtherPaymentAssignmentProps) =>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {students.map((student) => {
+                  {filteredStudents.map((student) => {
                     const studentPayments = getStudentPayments(student.id);
                     const isSelected = selectedStudents.includes(student.id);
                     
