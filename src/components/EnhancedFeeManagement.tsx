@@ -330,7 +330,7 @@ export const EnhancedFeeManagement = () => {
                             </div>
                             <div className="flex items-center gap-2">
                               <MonthFeeAssignment month={month} />
-                              <OtherPaymentAssignment />
+                              <OtherPaymentAssignment year={year.year} />
                               <Button
                                 variant="outline"
                                 size="sm"

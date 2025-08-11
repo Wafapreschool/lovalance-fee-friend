@@ -31,7 +31,11 @@ interface OtherPayment {
   transaction_id?: string;
 }
 
-export const OtherPaymentAssignment = () => {
+interface OtherPaymentAssignmentProps {
+  year?: number;
+}
+
+export const OtherPaymentAssignment = ({ year }: OtherPaymentAssignmentProps) => {
   const [open, setOpen] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
@@ -47,10 +51,16 @@ export const OtherPaymentAssignment = () => {
 
   const fetchStudents = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('students')
-        .select('*')
-        .order('full_name', { ascending: true });
+        .select('*');
+      
+      // Filter by year if provided
+      if (year) {
+        query = query.eq('year_joined', year);
+      }
+      
+      const { data, error } = await query.order('full_name', { ascending: true });
 
       if (error) throw error;
       setStudents(data || []);
