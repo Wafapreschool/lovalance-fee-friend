@@ -356,23 +356,23 @@ export const ParentDashboard = ({
     switch (activeTab) {
       case 'overview':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Welcome Message */}
-            <div className="text-center text-lg font-semibold text-gray-700 mb-4">
+            <div className="text-center text-base sm:text-lg font-semibold text-gray-700 mb-3 sm:mb-4 mobile-text">
               Welcome to WAFA Preschool Monthly Fee Management Portal
             </div>
 
             {/* Unpaid Fees Section */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <div className="flex justify-between items-center">
-                <h2 className="font-bold text-lg">Unpaid Fees & Other Payments</h2>
+                <h2 className="font-bold text-base sm:text-lg mobile-text">Unpaid Fees & Other Payments</h2>
               </div>
 
               {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:gap-4">
                   {[1, 2].map(i => (
                     <div key={i} className="animate-pulse">
-                      <div className="bg-muted h-48 rounded-lg"></div>
+                      <div className="bg-muted h-36 sm:h-48 rounded-lg"></div>
                     </div>
                   ))}
                 </div>
@@ -577,13 +577,13 @@ export const ParentDashboard = ({
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900 ml-12 lg:ml-0">
+            <div className="mobile-container">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 ml-12 lg:ml-0">
                 WAFA Pre School - Parent Portal
               </h1>
-              <p className="text-gray-600 ml-12 lg:ml-0">
+              <p className="text-sm sm:text-base text-gray-600 ml-12 lg:ml-0 mobile-text">
                 Monitor your children's fees and payment history
               </p>
             </div>
@@ -591,8 +591,8 @@ export const ParentDashboard = ({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 overflow-auto p-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex-1 overflow-auto p-4 sm:p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-6">
             {renderTabContent()}
           </div>
         </div>

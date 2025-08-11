@@ -393,52 +393,53 @@ export const YearBasedStudentManagement = () => {
   }
 
   return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold">Student Management by Academic Year</h2>
-            <p className="text-muted-foreground">View and manage students organized by their joining year</p>
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
+          <div className="mobile-container">
+            <h2 className="text-xl sm:text-2xl font-bold mobile-text">Student Management by Academic Year</h2>
+            <p className="text-sm sm:text-base text-muted-foreground mobile-text">View and manage students organized by their joining year</p>
           </div>
           <Button 
             variant="default" 
             onClick={() => setShowAddYearDialog(true)}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 w-full sm:w-auto"
+            size="sm"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
             Add Year
           </Button>
         </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {schoolYears.map((year) => (
           <Card key={year.id} className="bg-gradient-card">
             <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">Academic Year {year.year}</CardTitle>
-                  <CardDescription>
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-0">
+                <div className="flex-1">
+                  <CardTitle className="text-base sm:text-lg mobile-text">Academic Year {year.year}</CardTitle>
+                  <CardDescription className="text-sm mobile-text">
                     Students who joined in {year.year}
                   </CardDescription>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 w-full sm:w-auto">
                   <div className="flex gap-1">
                     <Badge 
                       variant="outline" 
-                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground text-xs"
                       onClick={() => handleEditYear(year)}
                     >
                       Edit
                     </Badge>
                     <Badge 
                       variant="outline" 
-                      className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                      className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground text-xs"
                       onClick={() => handleDeleteYear(year)}
                     >
                       Delete
                     </Badge>
                   </div>
                   {year.is_active && (
-                    <Badge variant="default" className="bg-success text-success-foreground">Active</Badge>
+                    <Badge variant="default" className="bg-success text-success-foreground text-xs">Active</Badge>
                   )}
                 </div>
               </div>
@@ -448,6 +449,7 @@ export const YearBasedStudentManagement = () => {
                 variant="outline" 
                 className="w-full flex items-center gap-2"
                 onClick={() => handleViewStudents(year)}
+                size="sm"
               >
                 <Users className="h-4 w-4" />
                 View Students
@@ -461,18 +463,18 @@ export const YearBasedStudentManagement = () => {
         <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
+              <Users className="h-4 w-4 sm:h-5 sm:w-5" />
               Students - Academic Year {selectedYear?.year}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="mobile-text">
               Manage students who joined in {selectedYear?.year}
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <h3 className="text-lg font-semibold">Students for Year {selectedYear?.year}</h3>
+          <div className="space-y-3 sm:space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                <h3 className="text-base sm:text-lg font-semibold mobile-text">Students for Year {selectedYear?.year}</h3>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
                   <Input
@@ -480,27 +482,30 @@ export const YearBasedStudentManagement = () => {
                     placeholder="Search students..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 w-64"
+                    className="pl-10 w-full sm:w-64"
                   />
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <Badge variant="secondary" className="text-xs">
                   {filteredStudents.length} of {students.length} students
                 </Badge>
-                <ExcelStudentImport 
-                  onStudentsImported={handleStudentAdded}
-                  defaultYear={selectedYear?.year}
-                />
-                <Button 
-                  variant="default" 
-                  size="sm"
-                  onClick={() => setShowAddForm(true)}
-                  className="flex items-center gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Student
-                </Button>
+                <div className="flex gap-2">
+                  <ExcelStudentImport 
+                    onStudentsImported={handleStudentAdded}
+                    defaultYear={selectedYear?.year}
+                  />
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onClick={() => setShowAddForm(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Add Student</span>
+                    <span className="sm:hidden">Add</span>
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -540,16 +545,16 @@ export const YearBasedStudentManagement = () => {
                     )}
                   </div>
                 </div>
-                <div className="rounded-md border">
+                <div className="rounded-md border overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-12">Select</TableHead>
-                        <TableHead>Student ID</TableHead>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Class</TableHead>
-                        <TableHead>Parent Phone</TableHead>
-                        <TableHead>Actions</TableHead>
+                        <TableHead className="min-w-[100px]">Student ID</TableHead>
+                        <TableHead className="min-w-[150px]">Name</TableHead>
+                        <TableHead className="min-w-[80px]">Class</TableHead>
+                        <TableHead className="min-w-[120px] hidden sm:table-cell">Parent Phone</TableHead>
+                        <TableHead className="min-w-[120px]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -569,33 +574,35 @@ export const YearBasedStudentManagement = () => {
                               )}
                             </Button>
                           </TableCell>
-                          <TableCell className="font-medium">{student.student_id}</TableCell>
-                          <TableCell>{student.full_name}</TableCell>
-                          <TableCell>{student.class_name}</TableCell>
-                          <TableCell>{student.parent_phone}</TableCell>
+                          <TableCell className="font-medium text-sm">{student.student_id}</TableCell>
+                          <TableCell className="text-sm">{student.full_name}</TableCell>
+                          <TableCell className="text-sm">{student.class_name}</TableCell>
+                          <TableCell className="text-sm hidden sm:table-cell">{student.parent_phone}</TableCell>
                           <TableCell>
-                            <div className="flex gap-2">
+                            <div className="flex gap-1">
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleViewStudent(student.id)}
+                                className="h-8 w-8 p-0"
                               >
-                                <Eye className="h-4 w-4" />
+                                <Eye className="h-3 w-3" />
                               </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleEditStudent(student.id)}
+                                className="h-8 w-8 p-0"
                               >
-                                <Edit className="h-4 w-4" />
+                                <Edit className="h-3 w-3" />
                               </Button>
                               <Button
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleDeleteStudent(student.id)}
-                                className="text-destructive hover:text-destructive"
+                                className="text-destructive hover:text-destructive h-8 w-8 p-0"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="h-3 w-3" />
                               </Button>
                             </div>
                           </TableCell>
