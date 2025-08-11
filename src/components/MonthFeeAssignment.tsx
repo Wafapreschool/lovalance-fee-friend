@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Users, Check, Edit, Trash2 } from "lucide-react";
+import { Users, Check, Edit, Trash2, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -44,6 +44,8 @@ interface MonthFeeAssignmentProps {
 export const MonthFeeAssignment = ({ month }: MonthFeeAssignmentProps) => {
   const [open, setOpen] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
   const [feeAmount, setFeeAmount] = useState<string>("");
   const [existingFees, setExistingFees] = useState<StudentFee[]>([]);
@@ -73,6 +75,7 @@ export const MonthFeeAssignment = ({ month }: MonthFeeAssignmentProps) => {
 
       if (error) throw error;
       setStudents(data || []);
+      setFilteredStudents(data || []);
     } catch (error) {
       console.error('Error fetching students:', error);
       toast.error("Failed to load students");
@@ -102,6 +105,21 @@ export const MonthFeeAssignment = ({ month }: MonthFeeAssignmentProps) => {
     }
   }, [open, month.id]);
 
+  // Filter students based on search term
+  useEffect(() => {
+    if (searchTerm) {
+      const filtered = students.filter(student =>
+        student.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.student_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.class_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.parent_phone.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredStudents(filtered);
+    } else {
+      setFilteredStudents(students);
+    }
+  }, [searchTerm, students]);
+
   const handleStudentSelection = (studentId: string, checked: boolean) => {
     if (checked) {
       setSelectedStudents(prev => [...prev, studentId]);
@@ -112,7 +130,7 @@ export const MonthFeeAssignment = ({ month }: MonthFeeAssignmentProps) => {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const availableStudents = students.filter(student => 
+      const availableStudents = filteredStudents.filter(student => 
         !existingFees.some(fee => fee.student_id === student.id)
       );
       setSelectedStudents(availableStudents.map(s => s.id));
@@ -217,6 +235,10 @@ export const MonthFeeAssignment = ({ month }: MonthFeeAssignmentProps) => {
     !existingFees.some(fee => fee.student_id === student.id)
   );
 
+  const filteredAvailableStudents = filteredStudents.filter(student => 
+    !existingFees.some(fee => fee.student_id === student.id)
+  );
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -265,13 +287,29 @@ export const MonthFeeAssignment = ({ month }: MonthFeeAssignmentProps) => {
               </div>
             </div>
 
+            <div className="flex items-center gap-4 mb-4">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  type="text"
+                  placeholder="Search students by name, ID, class, or phone..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Showing {filteredStudents.length} of {students.length} students
+              </div>
+            </div>
+
             <div className="flex items-center space-x-2">
               <Checkbox
                 id="selectAll"
-                checked={selectedStudents.length === availableStudents.length && availableStudents.length > 0}
+                checked={selectedStudents.length === filteredAvailableStudents.length && filteredAvailableStudents.length > 0}
                 onCheckedChange={handleSelectAll}
               />
-              <Label htmlFor="selectAll">Select All Available Students</Label>
+              <Label htmlFor="selectAll">Select All Visible Available Students</Label>
             </div>
 
             <div className="rounded-md border max-h-[400px] overflow-y-auto">
@@ -288,7 +326,7 @@ export const MonthFeeAssignment = ({ month }: MonthFeeAssignmentProps) => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {students.map((student) => {
+                  {filteredStudents.map((student) => {
                     const existingFee = existingFees.find(fee => fee.student_id === student.id);
                     const isSelected = selectedStudents.includes(student.id);
                     
