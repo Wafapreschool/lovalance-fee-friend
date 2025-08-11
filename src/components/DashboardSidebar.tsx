@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PasswordChangeDialog } from "./PasswordChangeDialog";
+import { ProfileDialog } from "./ProfileDialog";
 import { 
   Users, 
   CreditCard, 
@@ -92,16 +93,28 @@ export const DashboardSidebar = ({
       {/* Bottom Actions */}
       <div className="p-4 border-t border-gray-200 space-y-2">
         {userType === 'parent' && (
-          <PasswordChangeDialog>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full justify-start"
-            >
-              <Key className="h-4 w-4 mr-2" />
-              Change Password
-            </Button>
-          </PasswordChangeDialog>
+          <>
+            <ProfileDialog>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Profile Settings
+              </Button>
+            </ProfileDialog>
+            <PasswordChangeDialog>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+              >
+                <Key className="h-4 w-4 mr-2" />
+                Change Password
+              </Button>
+            </PasswordChangeDialog>
+          </>
         )}
         <Button
           variant="outline"

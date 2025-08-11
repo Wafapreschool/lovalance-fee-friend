@@ -52,6 +52,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   const updatePassword = async (password: string) => {
+    // Ensure we have a valid session before attempting password update
+    const { data: { session: currentSession }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !currentSession) {
+      return { error: { message: 'Authentication session is required to update password. Please log in again.' } };
+    }
+
     const { error } = await supabase.auth.updateUser({
       password,
     });
