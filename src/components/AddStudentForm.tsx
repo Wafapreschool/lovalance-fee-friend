@@ -48,7 +48,7 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded, defaultYear
       const studentId = formData.student_id || generateStudentId(formData.id_card_number);
       const password = formData.password || generatePassword();
 
-      const { error } = await supabase
+      const { data: newStudent, error: studentError } = await supabase
         .from('students')
         .insert([{
           student_id: studentId,
@@ -57,15 +57,50 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded, defaultYear
           year_joined: formData.year_joined,
           parent_phone: formData.parent_phone,
           password: password
-        }]);
+        }])
+        .select()
+        .single();
 
-      if (error) {
-        console.error('Error adding student:', error);
+      if (studentError) {
+        console.error('Error adding student:', studentError);
         toast.error("Failed to add student");
         return;
       }
 
-      toast.success(`Student added successfully! ID: ${studentId}, Password: ${password}`);
+      // Create parent auth account automatically
+      const authEmail = `${studentId}@parent.local`;
+      
+      const { data: authUser, error: authError } = await supabase.auth.signUp({
+        email: authEmail,
+        password: password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            full_name: `Parent of ${formData.full_name}`,
+            student_id: newStudent.id
+          }
+        }
+      });
+
+      if (authError) {
+        console.warn('Parent auth account creation failed:', authError);
+        // Don't fail the student creation if auth account fails
+      } else if (authUser.user) {
+        // Create user role linking to student
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .insert({
+            user_id: authUser.user.id,
+            role: 'student',
+            student_id: newStudent.id
+          });
+
+        if (roleError) {
+          console.warn('Role creation failed:', roleError);
+        }
+      }
+
+      toast.success(`Student and parent account created! ID: ${studentId}, Password: ${password}`);
       setFormData({
         full_name: "",
         class_name: "",
