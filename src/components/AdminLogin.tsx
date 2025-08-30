@@ -25,61 +25,104 @@ export const AdminLogin = ({
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSignupMode, setIsSignupMode] = useState(false);
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
     try {
-      const { error, data } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        toast({
-          title: "Login Failed",
-          description: error.message,
-          variant: "destructive"
+      if (isSignupMode) {
+        // Sign up new admin user
+        const { error, data } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/`,
+          }
         });
-        return;
-      }
 
-      if (data.user) {
-        // Check if user has admin role
-        const { data: roleData, error: roleError } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', data.user.id)
-          .eq('role', 'admin')
-          .single();
-
-        if (roleError || !roleData) {
-          await supabase.auth.signOut();
+        if (error) {
           toast({
-            title: "Access Denied",
-            description: "You don't have admin privileges",
+            title: "Signup Failed",
+            description: error.message,
             variant: "destructive"
           });
           return;
         }
 
-        onLogin({
-          id: data.user.id,
-          name: 'Administrator',
-          type: 'admin'
+        if (data.user) {
+          // Set up admin role using our function
+          try {
+            await supabase.rpc('setup_admin_user', { admin_email: email });
+            
+            toast({
+              title: "Admin Account Created",
+              description: "Please check your email to confirm your account, then sign in.",
+            });
+            setIsSignupMode(false);
+          } catch (roleError) {
+            console.error('Error setting up admin role:', roleError);
+            toast({
+              title: "Account Created",
+              description: "Account created but role assignment failed. Please contact support.",
+              variant: "destructive"
+            });
+          }
+        }
+      } else {
+        // Sign in existing user
+        const { error, data } = await supabase.auth.signInWithPassword({
+          email,
+          password,
         });
-        toast({
-          title: "Login Successful",
-          description: "Welcome to the admin dashboard"
-        });
+
+        if (error) {
+          toast({
+            title: "Login Failed",
+            description: error.message,
+            variant: "destructive"
+          });
+          return;
+        }
+
+        if (data.user) {
+          // Check if user has admin role
+          const { data: roleData, error: roleError } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', data.user.id)
+            .eq('role', 'admin')
+            .single();
+
+          if (roleError || !roleData) {
+            await supabase.auth.signOut();
+            toast({
+              title: "Access Denied",
+              description: "You don't have admin privileges",
+              variant: "destructive"
+            });
+            return;
+          }
+
+          onLogin({
+            id: data.user.id,
+            name: 'Administrator',
+            type: 'admin'
+          });
+          toast({
+            title: "Login Successful",
+            description: "Welcome to the admin dashboard"
+          });
+        }
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Auth error:', error);
       toast({
-        title: "Login Error",
-        description: "An error occurred during login. Please try again.",
+        title: "Authentication Error",
+        description: "An error occurred. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -127,10 +170,10 @@ export const AdminLogin = ({
             </Button>
             <div className="text-center space-y-2">
               <h2 className="text-xl sm:text-2xl font-semibold text-gray-900">
-                Admin Login
+                {isSignupMode ? 'Create Admin Account' : 'Admin Login'}
               </h2>
               <p className="text-gray-600 text-sm">
-                Access the administrative dashboard
+                {isSignupMode ? 'Set up your administrator account' : 'Access the administrative dashboard'}
               </p>
             </div>
           </CardHeader>
@@ -201,13 +244,24 @@ export const AdminLogin = ({
                 {isLoading ? (
                   <div className="flex items-center justify-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Signing in...
+                    {isSignupMode ? 'Creating Account...' : 'Signing in...'}
                   </div>
                 ) : (
-                  "Login"
+                  isSignupMode ? "Create Admin Account" : "Login"
                 )}
               </Button>
             </form>
+
+            {/* Toggle between login and signup */}
+            <div className="text-center pt-4 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => setIsSignupMode(!isSignupMode)}
+                className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                {isSignupMode ? 'Already have an account? Sign in' : "Don't have an admin account? Create one"}
+              </button>
+            </div>
 
             {/* Security Notice */}
             <div className="text-center pt-4 border-t border-gray-200">
