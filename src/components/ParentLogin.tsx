@@ -91,12 +91,19 @@ export const ParentLogin = ({
       }
 
       // Successfully verified - call parent login directly
+      console.log('About to call onLogin with:', {
+        id: student.id,
+        name: `Parent of ${student.full_name}`,
+        type: 'parent'
+      });
+      
       onLogin({
         id: student.id,
         name: `Parent of ${student.full_name}`,
         type: 'parent'
       });
 
+      console.log('onLogin called successfully');
       toast.success(`Welcome, Parent of ${student.full_name}!`);
       
     } catch (error) {

@@ -65,11 +65,14 @@ const Index = () => {
   };
 
   const handleLogin = (userData: UserData) => {
+    console.log('handleLogin called with userData:', userData);
     // For parent login, set the user directly since we're using simple credentials
     if (userData.type === 'parent') {
+      console.log('Processing parent login, setting state...');
       setCurrentUser(userData);
       setUserRole('parent');
       setAppState('dashboard');
+      console.log('Parent login state set - should redirect to dashboard');
     }
     // Admin login is handled by the useEffect that watches for auth changes
   };
