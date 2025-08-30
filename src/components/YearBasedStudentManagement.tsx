@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Users, Eye, Edit, Trash2, Plus } from "lucide-react";
+import { ExcelStudentImport } from "./ExcelStudentImport";
+import { Users, Eye, Edit, Trash2, Plus, CheckSquare, Square, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AddStudentForm } from "./AddStudentForm";
@@ -36,6 +37,8 @@ export const YearBasedStudentManagement = () => {
   const [schoolYears, setSchoolYears] = useState<SchoolYear[]>([]);
   const [selectedYear, setSelectedYear] = useState<SchoolYear | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
+  const [filteredStudents, setFilteredStudents] = useState<Student[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [showStudentsDialog, setShowStudentsDialog] = useState(false);
@@ -52,6 +55,8 @@ export const YearBasedStudentManagement = () => {
   const [yearToEdit, setYearToEdit] = useState<SchoolYear | null>(null);
   const [yearToDelete, setYearToDelete] = useState<SchoolYear | null>(null);
   const [editYearValue, setEditYearValue] = useState<string>("");
+  const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 
   const fetchSchoolYears = async () => {
     try {
@@ -91,6 +96,7 @@ export const YearBasedStudentManagement = () => {
       }
 
       setStudents(data || []);
+      setFilteredStudents(data || []);
     } catch (error) {
       console.error('Error:', error);
       toast.error("An error occurred while loading students");
@@ -103,7 +109,28 @@ export const YearBasedStudentManagement = () => {
     fetchSchoolYears();
   }, []);
 
+  // Filter students based on search term
+  useEffect(() => {
+    if (searchTerm) {
+      const filtered = students.filter(student =>
+        student.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.student_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.class_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.parent_phone.includes(searchTerm)
+      );
+      setFilteredStudents(filtered);
+    } else {
+      setFilteredStudents(students);
+    }
+  }, [searchTerm, students]);
+
   const handleViewStudents = (schoolYear: SchoolYear) => {
+    // Clear previous data first
+    setStudents([]);
+    setFilteredStudents([]);
+    setSelectedStudents([]);
+    setSearchTerm("");
+    
     setSelectedYear(schoolYear);
     fetchStudentsForYear(schoolYear.year);
     setShowStudentsDialog(true);
@@ -156,7 +183,60 @@ export const YearBasedStudentManagement = () => {
     if (selectedYear) {
       fetchStudentsForYear(selectedYear.year);
     }
+    setSelectedStudents([]);
     fetchSchoolYears();
+  };
+
+  const handleSelectAll = () => {
+    if (selectedStudents.length === filteredStudents.length) {
+      setSelectedStudents([]);
+    } else {
+      setSelectedStudents(filteredStudents.map(s => s.id));
+    }
+  };
+
+  const handleSelectStudent = (studentId: string) => {
+    setSelectedStudents(prev => 
+      prev.includes(studentId) 
+        ? prev.filter(id => id !== studentId)
+        : [...prev, studentId]
+    );
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedStudents.length === 0) {
+      toast.error("Please select students to delete");
+      return;
+    }
+    setShowBulkDeleteDialog(true);
+  };
+
+  const confirmBulkDelete = async () => {
+    if (selectedStudents.length === 0) return;
+
+    try {
+      const { error } = await supabase
+        .from('students')
+        .delete()
+        .in('id', selectedStudents);
+
+      if (error) {
+        console.error('Error deleting students:', error);
+        toast.error("Failed to delete students");
+        return;
+      }
+
+      toast.success(`Successfully deleted ${selectedStudents.length} student${selectedStudents.length > 1 ? 's' : ''}`);
+      setSelectedStudents([]);
+      if (selectedYear) {
+        fetchStudentsForYear(selectedYear.year);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error("An error occurred while deleting students");
+    } finally {
+      setShowBulkDeleteDialog(false);
+    }
   };
 
   const handleAddYear = async () => {
@@ -319,52 +399,53 @@ export const YearBasedStudentManagement = () => {
   }
 
   return (
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold">Student Management by Academic Year</h2>
-            <p className="text-muted-foreground">View and manage students organized by their joining year</p>
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0">
+          <div className="mobile-container">
+            <h2 className="text-xl sm:text-2xl font-bold mobile-text">Student Management by Academic Year</h2>
+            <p className="text-sm sm:text-base text-muted-foreground mobile-text">View and manage students organized by their joining year</p>
           </div>
           <Button 
             variant="default" 
             onClick={() => setShowAddYearDialog(true)}
-            className="flex items-center gap-2"
+            className="flex items-center gap-2 w-full sm:w-auto"
+            size="sm"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
             Add Year
           </Button>
         </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         {schoolYears.map((year) => (
           <Card key={year.id} className="bg-gradient-card">
             <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">Academic Year {year.year}</CardTitle>
-                  <CardDescription>
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-3 sm:gap-0">
+                <div className="flex-1">
+                  <CardTitle className="text-base sm:text-lg mobile-text">Academic Year {year.year}</CardTitle>
+                  <CardDescription className="text-sm mobile-text">
                     Students who joined in {year.year}
                   </CardDescription>
                 </div>
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 w-full sm:w-auto">
                   <div className="flex gap-1">
                     <Badge 
                       variant="outline" 
-                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground"
+                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground text-xs"
                       onClick={() => handleEditYear(year)}
                     >
                       Edit
                     </Badge>
                     <Badge 
                       variant="outline" 
-                      className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                      className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground text-xs"
                       onClick={() => handleDeleteYear(year)}
                     >
                       Delete
                     </Badge>
                   </div>
                   {year.is_active && (
-                    <Badge variant="default" className="bg-success text-success-foreground">Active</Badge>
+                    <Badge variant="default" className="bg-success text-success-foreground text-xs">Active</Badge>
                   )}
                 </div>
               </div>
@@ -374,6 +455,7 @@ export const YearBasedStudentManagement = () => {
                 variant="outline" 
                 className="w-full flex items-center gap-2"
                 onClick={() => handleViewStudents(year)}
+                size="sm"
               >
                 <Users className="h-4 w-4" />
                 View Students
@@ -383,32 +465,64 @@ export const YearBasedStudentManagement = () => {
         ))}
       </div>
 
-      <Dialog open={showStudentsDialog} onOpenChange={setShowStudentsDialog}>
+      <Dialog open={showStudentsDialog} onOpenChange={(open) => {
+        setShowStudentsDialog(open);
+        // Clear data when closing to prevent showing wrong students next time
+        if (!open) {
+          setStudents([]);
+          setFilteredStudents([]);
+          setSelectedStudents([]);
+          setSearchTerm("");
+          setSelectedYear(null);
+        }
+      }}>
         <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
+              <Users className="h-4 w-4 sm:h-5 sm:w-5" />
               Students - Academic Year {selectedYear?.year}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="mobile-text">
               Manage students who joined in {selectedYear?.year}
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="text-sm text-muted-foreground">
-                {students.length} student{students.length !== 1 ? 's' : ''} found
+          <div className="space-y-3 sm:space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                <h3 className="text-base sm:text-lg font-semibold mobile-text">Students for Year {selectedYear?.year}</h3>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                  <Input
+                    type="text"
+                    placeholder="Search students..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 w-full sm:w-64"
+                  />
+                </div>
               </div>
-              <Button 
-                variant="default" 
-                size="sm"
-                onClick={() => setShowAddForm(true)}
-                className="flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add Student
-              </Button>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <Badge variant="secondary" className="text-xs">
+                  {filteredStudents.length} of {students.length} students
+                </Badge>
+                <div className="flex gap-2">
+                  <ExcelStudentImport 
+                    onStudentsImported={handleStudentAdded}
+                    defaultYear={selectedYear?.year}
+                  />
+                  <Button 
+                    variant="default" 
+                    size="sm"
+                    onClick={() => setShowAddForm(true)}
+                    className="flex items-center gap-2"
+                  >
+                    <Plus className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <span className="hidden sm:inline">Add Student</span>
+                    <span className="sm:hidden">Add</span>
+                  </Button>
+                </div>
+              </div>
             </div>
 
             {studentsLoading ? (
@@ -418,55 +532,102 @@ export const YearBasedStudentManagement = () => {
                 ))}
               </div>
             ) : students.length > 0 ? (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Student ID</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Class</TableHead>
-                      <TableHead>Parent Phone</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {students.map((student) => (
-                      <TableRow key={student.id}>
-                        <TableCell className="font-medium">{student.student_id}</TableCell>
-                        <TableCell>{student.full_name}</TableCell>
-                        <TableCell>{student.class_name}</TableCell>
-                        <TableCell>{student.parent_phone}</TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleViewStudent(student.id)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditStudent(student.id)}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleDeleteStudent(student.id)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
+              <>
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSelectAll}
+                      className="flex items-center gap-2"
+                    >
+                      {selectedStudents.length === filteredStudents.length ? (
+                        <CheckSquare className="h-4 w-4" />
+                      ) : (
+                        <Square className="h-4 w-4" />
+                      )}
+                      Select All Visible
+                    </Button>
+                    {selectedStudents.length > 0 && (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={handleBulkDelete}
+                        className="flex items-center gap-2"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete Selected ({selectedStudents.length})
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <div className="rounded-md border overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-12">Select</TableHead>
+                        <TableHead className="min-w-[100px]">Student ID</TableHead>
+                        <TableHead className="min-w-[150px]">Name</TableHead>
+                        <TableHead className="min-w-[80px]">Class</TableHead>
+                        <TableHead className="min-w-[120px] hidden sm:table-cell">Parent Phone</TableHead>
+                        <TableHead className="min-w-[120px]">Actions</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredStudents.map((student) => (
+                        <TableRow key={student.id}>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleSelectStudent(student.id)}
+                              className="p-1"
+                            >
+                              {selectedStudents.includes(student.id) ? (
+                                <CheckSquare className="h-4 w-4" />
+                              ) : (
+                                <Square className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </TableCell>
+                          <TableCell className="font-medium text-sm">{student.student_id}</TableCell>
+                          <TableCell className="text-sm">{student.full_name}</TableCell>
+                          <TableCell className="text-sm">{student.class_name}</TableCell>
+                          <TableCell className="text-sm hidden sm:table-cell">{student.parent_phone}</TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleViewStudent(student.id)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Eye className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditStudent(student.id)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDeleteStudent(student.id)}
+                                className="text-destructive hover:text-destructive h-8 w-8 p-0"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </>
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">No students found for this year</p>
@@ -592,6 +753,23 @@ export const YearBasedStudentManagement = () => {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteStudent} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Multiple Students</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {selectedStudents.length} selected student{selectedStudents.length > 1 ? 's' : ''}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmBulkDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete {selectedStudents.length} Student{selectedStudents.length > 1 ? 's' : ''}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

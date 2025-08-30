@@ -1,0 +1,643 @@
+import { useState, useRef } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Upload, FileSpreadsheet, Check, X, AlertCircle, Download } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import * as XLSX from 'xlsx';
+
+interface ExcelStudentImportProps {
+  onStudentsImported: () => void;
+  defaultYear?: number;
+}
+
+interface ParsedStudent {
+  full_name: string;
+  student_id: string;
+  class_name: string;
+  year_joined: number;
+  parent_phone: string;
+  password: string;
+  isValid: boolean;
+  errors: string[];
+}
+
+interface ColumnMapping {
+  [key: string]: string;
+}
+
+export const ExcelStudentImport = ({ onStudentsImported, defaultYear }: ExcelStudentImportProps) => {
+  const [open, setOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [excelData, setExcelData] = useState<any[]>([]);
+  const [columnMapping, setColumnMapping] = useState<ColumnMapping>({});
+  const [parsedStudents, setParsedStudents] = useState<ParsedStudent[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [step, setStep] = useState<'upload' | 'mapping' | 'preview'>('upload');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const requiredFields = {
+    full_name: 'Full Name',
+    student_id: 'Student ID',
+    class_name: 'Class',
+    parent_phone: 'Parent Phone'
+  };
+
+  const optionalFields = {
+    year_joined: 'Year Joined',
+    password: 'Password'
+  };
+
+  // Remove fixed class options - allow any class name from Excel
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const uploadedFile = event.target.files?.[0];
+    if (!uploadedFile) return;
+
+    if (!uploadedFile.name.match(/\.(xlsx|xls)$/)) {
+      toast.error("Please upload an Excel file (.xlsx or .xls)");
+      return;
+    }
+
+    setFile(uploadedFile);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        
+        if (jsonData.length < 2) {
+          toast.error("Excel file must have at least a header row and one data row");
+          return;
+        }
+
+        // Extract headers and data
+        const headers = jsonData[0] as string[];
+        const dataRows = jsonData.slice(1);
+        
+        // Convert to array of objects
+        const processedData = dataRows.map((row: any) => {
+          const obj: any = {};
+          headers.forEach((header, index) => {
+            obj[header] = row[index] || '';
+          });
+          return obj;
+        });
+
+        setExcelData(processedData);
+        setStep('mapping');
+        
+        // Auto-detect column mappings based on common header names
+        const autoMapping: ColumnMapping = {};
+        headers.forEach(header => {
+          const lowerHeader = header.toLowerCase().trim();
+          if (lowerHeader.includes('name') && lowerHeader.includes('full')) {
+            autoMapping.full_name = header;
+          } else if (lowerHeader.includes('student') && lowerHeader.includes('id')) {
+            autoMapping.student_id = header;
+          } else if (lowerHeader.includes('class')) {
+            autoMapping.class_name = header;
+          } else if (lowerHeader.includes('phone') && lowerHeader.includes('parent')) {
+            autoMapping.parent_phone = header;
+          } else if (lowerHeader.includes('year')) {
+            autoMapping.year_joined = header;
+          } else if (lowerHeader.includes('password')) {
+            autoMapping.password = header;
+          }
+        });
+        setColumnMapping(autoMapping);
+        
+      } catch (error) {
+        console.error('Error reading Excel file:', error);
+        toast.error("Failed to read Excel file");
+      }
+    };
+    reader.readAsArrayBuffer(uploadedFile);
+  };
+
+  const generateStudentId = async (name: string, year: number): Promise<string> => {
+    const namePart = name.split(' ')[0].toLowerCase().replace(/[^a-z]/g, '');
+    let attempts = 0;
+    
+    // Try to generate a unique student ID
+    while (attempts < 20) {
+      const timestamp = Date.now().toString().slice(-4);
+      const randomSuffix = Math.random().toString(36).substring(2, 4);
+      const studentId = `${namePart}${year}${timestamp}${randomSuffix}`;
+      
+      // Check if this ID already exists in database
+      const { data, error } = await supabase
+        .from('students')
+        .select('student_id')
+        .eq('student_id', studentId)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error checking student ID:', error);
+      }
+      
+      if (!data) {
+        return studentId; // ID is unique
+      }
+      
+      attempts++;
+      // Small delay to ensure different timestamps
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    
+    // Fallback with UUID-like suffix if all attempts fail
+    const fallbackId = `${namePart}${year}${Date.now()}${Math.random().toString(36).substring(2, 8)}`;
+    return fallbackId;
+  };
+
+  const generatePassword = () => {
+    return Math.random().toString(36).slice(-8);
+  };
+
+  const validateAndParseStudents = async () => {
+    const students: ParsedStudent[] = [];
+    
+    for (const [index, row] of excelData.entries()) {
+      const student: ParsedStudent = {
+        full_name: '',
+        student_id: '',
+        class_name: '',
+        year_joined: defaultYear || new Date().getFullYear(),
+        parent_phone: '',
+        password: '',
+        isValid: true,
+        errors: []
+      };
+
+      // Map Excel columns to student fields
+      Object.entries(columnMapping).forEach(([field, excelColumn]) => {
+        if (excelColumn && excelColumn !== 'none' && row[excelColumn]) {
+          if (field === 'year_joined') {
+            const excelYear = parseInt(row[excelColumn]);
+            // Use Excel year if valid, otherwise use defaultYear
+            student[field] = excelYear && !isNaN(excelYear) ? excelYear : (defaultYear || new Date().getFullYear());
+          } else {
+            (student as any)[field] = row[excelColumn].toString().trim();
+          }
+        }
+      });
+
+      // If no year in Excel, use defaultYear
+      if (!student.year_joined || isNaN(student.year_joined)) {
+        student.year_joined = defaultYear || new Date().getFullYear();
+      }
+
+      // Ensure password is always generated if not provided
+      if (!student.password) {
+        student.password = generatePassword();
+      }
+
+      // Generate unique student ID if not provided
+      if (!student.student_id && student.full_name) {
+        try {
+          student.student_id = await generateStudentId(student.full_name, student.year_joined);
+        } catch (error) {
+          console.error('Error generating student ID:', error);
+          student.student_id = `${student.full_name.split(' ')[0].toLowerCase()}${student.year_joined}${Math.random().toString(36).substring(2, 6)}`;
+        }
+      }
+
+      // Check if student already exists for the SAME YEAR
+      if (student.student_id && student.full_name) {
+        const { data: existingStudent } = await supabase
+          .from('students')
+          .select('student_id, year_joined, full_name')
+          .eq('full_name', student.full_name)
+          .eq('year_joined', student.year_joined)
+          .maybeSingle();
+
+        if (existingStudent) {
+          // Student already exists for this year, find next available year
+          const { data: allYearsForStudent } = await supabase
+            .from('students')
+            .select('year_joined')
+            .eq('full_name', student.full_name)
+            .order('year_joined', { ascending: false });
+
+          if (allYearsForStudent && allYearsForStudent.length > 0) {
+            const latestYear = Math.max(...allYearsForStudent.map(s => s.year_joined));
+            const nextYear = latestYear + 1;
+            
+            student.year_joined = nextYear;
+            student.student_id = await generateStudentId(student.full_name, nextYear);
+            student.errors.push(`Student exists, adding for year ${nextYear}`);
+          }
+        }
+      }
+
+      // Validate required fields
+      if (!student.full_name) {
+        student.errors.push('Full name is required');
+        student.isValid = false;
+      }
+      if (!student.student_id) {
+        student.errors.push('Student ID is required');
+        student.isValid = false;
+      }
+      if (!student.class_name) {
+        student.errors.push('Class is required');
+        student.isValid = false;
+      }
+      if (!student.parent_phone) {
+        student.errors.push('Parent phone is required');
+        student.isValid = false;
+      }
+
+      // Check if Excel year matches selected year (if both provided)
+      if (defaultYear && columnMapping.year_joined && columnMapping.year_joined !== 'none') {
+        const excelYear = parseInt(row[columnMapping.year_joined]);
+        if (excelYear && !isNaN(excelYear) && excelYear !== defaultYear) {
+          student.errors.push(`Excel year (${excelYear}) doesn't match selected year (${defaultYear})`);
+          student.isValid = false;
+        }
+      }
+
+      students.push(student);
+    }
+
+    setParsedStudents(students);
+    setStep('preview');
+  };
+
+  const handleImportStudents = async () => {
+    const validStudents = parsedStudents.filter(s => s.isValid);
+    
+    if (validStudents.length === 0) {
+      toast.error("No valid students to import");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Insert students one by one to handle duplicates gracefully
+      let successCount = 0;
+      let duplicateCount = 0;
+      
+      for (const student of validStudents) {
+        try {
+          const { error } = await supabase
+            .from('students')
+            .insert({
+              student_id: student.student_id,
+              full_name: student.full_name,
+              class_name: student.class_name,
+              year_joined: student.year_joined,
+              parent_phone: student.parent_phone,
+              password: student.password
+            });
+
+          if (error) {
+            if (error.code === '23505') {
+              // Duplicate key error, try with new ID
+              const newStudentId = await generateStudentId(student.full_name, student.year_joined);
+              const { error: retryError } = await supabase
+                .from('students')
+                .insert({
+                  student_id: newStudentId,
+                  full_name: student.full_name,
+                  class_name: student.class_name,
+                  year_joined: student.year_joined,
+                  parent_phone: student.parent_phone,
+                  password: student.password
+                });
+              
+              if (!retryError) {
+                successCount++;
+              } else {
+                duplicateCount++;
+                console.warn(`Could not import duplicate student: ${student.full_name}`);
+              }
+            } else {
+              throw error;
+            }
+          } else {
+            successCount++;
+          }
+        } catch (individualError) {
+          console.error('Error importing individual student:', individualError);
+          duplicateCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Successfully imported ${successCount} students${duplicateCount > 0 ? ` (${duplicateCount} duplicates skipped)` : ''}`);
+        onStudentsImported();
+        resetForm();
+        setOpen(false);
+      } else {
+        toast.error("No students were imported");
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      toast.error("An error occurred while importing students");
+    } finally {
+      setLoading(false);
+      setShowConfirmDialog(false);
+    }
+  };
+
+  const resetForm = () => {
+    setFile(null);
+    setExcelData([]);
+    setColumnMapping({});
+    setParsedStudents([]);
+    setStep('upload');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const downloadTemplate = () => {
+    const template = [
+      ['Full Name', 'Student ID', 'Class', 'Year Joined', 'Parent Phone', 'Password'],
+      ['John Doe', 'john2024abc', 'KG1', '2024', '9876543210', 'password123'],
+      ['Jane Smith', 'jane2024xyz', 'KG2', '2024', '9876543211', 'password456']
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(template);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Students');
+    XLSX.writeFile(workbook, 'student_import_template.xlsx');
+  };
+
+  const validStudentsCount = parsedStudents.filter(s => s.isValid).length;
+  const invalidStudentsCount = parsedStudents.filter(s => !s.isValid).length;
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={(newOpen) => {
+        setOpen(newOpen);
+        if (!newOpen) resetForm();
+      }}>
+        <DialogTrigger asChild>
+          <Button variant="outline" className="flex items-center gap-2">
+            <Upload className="h-4 w-4" />
+            Import from Excel
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5" />
+              Import Students from Excel
+            </DialogTitle>
+            <DialogDescription>
+              Upload an Excel file to bulk import student data
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto">
+            {step === 'upload' && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Step 1: Upload Excel File</CardTitle>
+                    <CardDescription>
+                      Select an Excel file (.xlsx or .xls) containing student information
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="excel-file">Excel File</Label>
+                      <Input
+                        ref={fileInputRef}
+                        id="excel-file"
+                        type="file"
+                        accept=".xlsx,.xls"
+                        onChange={handleFileUpload}
+                        className="mt-2"
+                      />
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={downloadTemplate}
+                        className="flex items-center gap-2"
+                      >
+                        <Download className="h-4 w-4" />
+                        Download Template
+                      </Button>
+                      <span className="text-sm text-muted-foreground">
+                        Download a sample Excel template to see the expected format
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {step === 'mapping' && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Step 2: Map Columns</CardTitle>
+                    <CardDescription>
+                      Map the columns from your Excel file to the student fields
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Required Fields */}
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-sm">Required Fields</h4>
+                        {Object.entries(requiredFields).map(([field, label]) => (
+                          <div key={field}>
+                            <Label className="text-sm">{label} *</Label>
+                            <Select
+                              value={columnMapping[field] || ''}
+                              onValueChange={(value) => setColumnMapping(prev => ({ ...prev, [field]: value }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select column" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {excelData.length > 0 && Object.keys(excelData[0]).filter(column => column && column.trim()).map(column => (
+                                  <SelectItem key={column} value={column}>{column}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Optional Fields */}
+                      <div className="space-y-3">
+                        <h4 className="font-medium text-sm">Optional Fields</h4>
+                        {Object.entries(optionalFields).map(([field, label]) => (
+                          <div key={field}>
+                            <Label className="text-sm">{label}</Label>
+                            <Select
+                              value={columnMapping[field] || ''}
+                              onValueChange={(value) => setColumnMapping(prev => ({ ...prev, [field]: value }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select column (optional)" />
+                              </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">None</SelectItem>
+                                  {excelData.length > 0 && Object.keys(excelData[0]).filter(column => column && column.trim()).map(column => (
+                                    <SelectItem key={column} value={column}>{column}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                            </Select>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between pt-4">
+                      <Button variant="outline" onClick={() => setStep('upload')}>
+                        Back
+                      </Button>
+                      <Button 
+                        onClick={async () => {
+                          setLoading(true);
+                          try {
+                            await validateAndParseStudents();
+                          } catch (error) {
+                            console.error('Error validating students:', error);
+                            toast.error("Error processing data");
+                          } finally {
+                            setLoading(false);
+                          }
+                        }}
+                        disabled={loading || !Object.entries(requiredFields).every(([key]) => 
+                          columnMapping[key] && columnMapping[key] !== 'none'
+                        )}
+                      >
+                        {loading ? "Processing..." : "Next: Preview Data"}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {step === 'preview' && (
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Step 3: Preview & Import</CardTitle>
+                    <CardDescription>
+                      Review the parsed student data before importing
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex gap-4">
+                      <Badge variant="default" className="bg-success text-success-foreground">
+                        {validStudentsCount} Valid Students
+                      </Badge>
+                      {invalidStudentsCount > 0 && (
+                        <Badge variant="destructive">
+                          {invalidStudentsCount} Invalid Students
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="rounded-md border max-h-[400px] overflow-y-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Full Name</TableHead>
+                            <TableHead>Student ID</TableHead>
+                            <TableHead>Class</TableHead>
+                            <TableHead>Year</TableHead>
+                            <TableHead>Parent Phone</TableHead>
+                            <TableHead>Errors</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {parsedStudents.map((student, index) => (
+                            <TableRow key={index}>
+                              <TableCell>
+                                {student.isValid ? (
+                                  <Check className="h-4 w-4 text-success" />
+                                ) : (
+                                  <X className="h-4 w-4 text-destructive" />
+                                )}
+                              </TableCell>
+                              <TableCell>{student.full_name}</TableCell>
+                              <TableCell>{student.student_id}</TableCell>
+                              <TableCell>{student.class_name}</TableCell>
+                              <TableCell>{student.year_joined}</TableCell>
+                              <TableCell>{student.parent_phone}</TableCell>
+                              <TableCell>
+                                {student.errors.length > 0 && (
+                                  <div className="text-sm text-destructive">
+                                    {student.errors.join(', ')}
+                                  </div>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    <div className="flex justify-between pt-4">
+                      <Button variant="outline" onClick={() => setStep('mapping')}>
+                        Back
+                      </Button>
+                      <Button
+                        onClick={() => setShowConfirmDialog(true)}
+                        disabled={validStudentsCount === 0}
+                        className="bg-primary hover:bg-primary/90"
+                      >
+                        Import {validStudentsCount} Students
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" />
+              Confirm Import
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to import {validStudentsCount} students? 
+              {invalidStudentsCount > 0 && ` ${invalidStudentsCount} invalid entries will be skipped.`}
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleImportStudents}
+              disabled={loading}
+              className="bg-primary hover:bg-primary/90"
+            >
+              {loading ? "Importing..." : "Confirm Import"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+};

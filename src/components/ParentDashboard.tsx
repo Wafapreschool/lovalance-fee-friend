@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StudentCard, Student } from "./StudentCard";
 import { ParentFeeView } from "./ParentFeeView";
 import { PasswordChangeDialog } from "./PasswordChangeDialog";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { DashboardFooter } from "./DashboardFooter";
+import { OtherPaymentView } from "./OtherPaymentView";
 import { toast } from "sonner";
 import { CreditCard, Clock, CheckCircle, AlertCircle, CalendarDays, User, Key, LogOut } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +35,8 @@ export const ParentDashboard = ({
 }: ParentDashboardProps = {}) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
+  const [allStudentFees, setAllStudentFees] = useState<any[]>([]);
+  const [otherPayments, setOtherPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -54,61 +58,170 @@ export const ParentDashboard = ({
 
   const fetchStudentsData = async () => {
     try {
-      // Filter by current user - only show their children
+      // First, get the current student's data to find their parent phone
+      const {
+        data: currentStudentData,
+        error: currentStudentError
+      } = await supabase
+        .from('students')
+        .select('parent_phone')
+        .eq('id', currentUser.id)
+        .single();
+
+      if (currentStudentError || !currentStudentData) {
+        console.error('Error fetching current student:', currentStudentError);
+        toast.error("Failed to load student data");
+        return;
+      }
+
+      const parentPhone = currentStudentData.parent_phone;
+      console.log('Parent phone found:', parentPhone);
+
+      // Now get all students for this parent
       const {
         data: studentsData,
         error: studentsError
-      } = await supabase.from('students').select('*').eq('id', currentUser.id).order('created_at', {
-        ascending: false
-      });
+      } = await supabase
+        .from('students')
+        .select('*')
+        .eq('parent_phone', parentPhone)
+        .order('created_at', { ascending: false });
+
+      console.log('Fetching students for parent phone:', parentPhone);
+      console.log('Students found:', studentsData);
+
       if (studentsError) {
         console.error('Error fetching students:', studentsError);
         toast.error("Failed to load students");
         return;
       }
+
+      if (!studentsData || studentsData.length === 0) {
+        setStudents([]);
+        setPaymentHistory([]);
+        setOtherPayments([]);
+        setLoading(false);
+        return;
+      }
+
+      // Get student IDs for fee queries
+      const studentIds = studentsData.map(s => s.id);
+
+      // Fetch all fees from student_fees table with related data
       const {
         data: feesData,
         error: feesError
-      } = await supabase.from('fees').select('*').order('created_at', {
-        ascending: false
-      });
+      } = await supabase
+        .from('student_fees')
+        .select(`
+          *,
+          school_months!inner(
+            month_name,
+            due_date,
+            school_years!inner(year)
+          )
+        `)
+        .in('student_id', studentIds)
+        .order('created_at', { ascending: false });
+
+      // Store all fees for overview section
+      setAllStudentFees(feesData || []);
+
       if (feesError) {
         console.error('Error fetching fees:', feesError);
         toast.error("Failed to load fees");
         return;
       }
 
-      // Transform data to match Student interface
-      const transformedStudents: Student[] = (studentsData || []).map(student => {
-        const currentMonth = new Date().toLocaleString('default', {
-          month: 'long'
-        });
-        const currentYear = new Date().getFullYear();
-        const studentFee = feesData?.find(fee => fee.student_id === student.id && fee.month === currentMonth && fee.year === currentYear);
-        return {
-          id: student.id,
-          name: student.full_name,
-          class: student.class_name,
-          yearJoined: student.year_joined,
-          currentFee: {
-            month: currentMonth,
-            year: currentYear,
-            amount: studentFee?.amount || 3500,
-            status: studentFee?.status as "pending" | "paid" | "overdue" || "pending",
-            dueDate: studentFee?.due_date || new Date(currentYear, new Date().getMonth(), 15).toISOString().split('T')[0]
+      // Fetch other payments for all students
+      const {
+        data: otherPaymentsData,
+        error: otherPaymentsError
+      } = await supabase
+        .from('other_payments')
+        .select('*')
+        .in('student_id', studentIds)
+        .order('created_at', { ascending: false });
+
+      if (otherPaymentsError) {
+        console.error('Error fetching other payments:', otherPaymentsError);
+        toast.error("Failed to load other payments");
+        return;
+      }
+
+      setOtherPayments(otherPaymentsData || []);
+
+      // Transform students data with their most recent unpaid fees or latest fee
+      const transformedStudents: Student[] = studentsData.map(student => {
+        // Find unpaid fees for this student (pending or overdue)
+        const unpaidFees = feesData?.filter(fee => 
+          fee.student_id === student.id && 
+          (fee.status === 'pending' || fee.status === 'overdue')
+        ) || [];
+
+        // If there are unpaid fees, show the most recent one
+        if (unpaidFees.length > 0) {
+          const mostRecentUnpaid = unpaidFees[0]; // Already sorted by created_at desc
+          return {
+            id: student.id,
+            name: student.full_name,
+            class: student.class_name,
+            yearJoined: student.year_joined,
+            currentFee: {
+              month: mostRecentUnpaid.school_months.month_name,
+              year: mostRecentUnpaid.school_months.school_years.year,
+              amount: mostRecentUnpaid.amount,
+              status: mostRecentUnpaid.status as "pending" | "paid" | "overdue",
+              dueDate: new Date(mostRecentUnpaid.school_months.due_date).toLocaleDateString()
+            }
+          };
+        } else {
+          // No unpaid fees - show as paid up
+          const latestFee = feesData?.find(fee => fee.student_id === student.id);
+          if (latestFee) {
+            return {
+              id: student.id,
+              name: student.full_name,
+              class: student.class_name,
+              yearJoined: student.year_joined,
+              currentFee: {
+                month: latestFee.school_months.month_name,
+                year: latestFee.school_months.school_years.year,
+                amount: latestFee.amount,
+                status: "paid",
+                dueDate: new Date(latestFee.school_months.due_date).toLocaleDateString()
+              }
+            };
+          } else {
+            return {
+              id: student.id,
+              name: student.full_name,
+              class: student.class_name,
+              yearJoined: student.year_joined,
+              currentFee: {
+                month: "No fees assigned",
+                year: new Date().getFullYear(),
+                amount: 0,
+                status: "paid",
+                dueDate: new Date().toLocaleDateString()
+              }
+            };
           }
-        };
+        }
       });
 
-      // Transform fee history - only for current user's children
-      const transformedHistory: PaymentHistory[] = (feesData || []).filter(fee => fee.status === 'paid' && fee.student_id === currentUser.id).map(fee => ({
-        month: fee.month,
-        year: fee.year,
-        amount: fee.amount,
-        status: fee.status,
-        paidDate: fee.payment_date ? new Date(fee.payment_date).toLocaleDateString() : undefined,
-        transactionId: fee.transaction_id
-      }));
+      // Transform fee history - only paid fees for these students
+      const transformedHistory: PaymentHistory[] = (feesData || [])
+        .filter(fee => fee.status === 'paid')
+        .map(fee => ({
+          month: fee.school_months.month_name,
+          year: fee.school_months.school_years.year,
+          amount: fee.amount,
+          status: fee.status,
+          paidDate: fee.payment_date ? new Date(fee.payment_date).toLocaleDateString() : undefined,
+          transactionId: fee.transaction_id
+        }));
+
       setStudents(transformedStudents);
       setPaymentHistory(transformedHistory);
     } catch (error) {
@@ -122,43 +235,107 @@ export const ParentDashboard = ({
   useEffect(() => {
     fetchStudentsData();
 
-    // Set up real-time subscriptions for automatic updates
-    const studentsChannel = supabase.channel('students-changes').on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'students'
-    }, () => {
-      console.log('Students updated, refreshing data...');
-      fetchStudentsData();
-    }).subscribe();
-    const feesChannel = supabase.channel('fees-changes').on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'student_fees'
-    }, () => {
-      console.log('Student fees updated, refreshing data...');
-      fetchStudentsData();
-    }).subscribe();
-    const schoolMonthsChannel = supabase.channel('school-months-changes').on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'school_months'
-    }, () => {
-      console.log('School months updated, refreshing data...');
-      fetchStudentsData();
-    }).subscribe();
-    return () => {
-      supabase.removeChannel(studentsChannel);
-      supabase.removeChannel(feesChannel);
-      supabase.removeChannel(schoolMonthsChannel);
+    // Set up throttled real-time subscriptions with debouncing
+    let refreshTimeout: NodeJS.Timeout;
+    
+    const debouncedRefresh = () => {
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      refreshTimeout = setTimeout(() => {
+        console.log('Data updated, refreshing...');
+        fetchStudentsData();
+      }, 1000); // Debounce to prevent excessive calls
     };
-  }, []);
 
-  const handlePayFee = (studentId: string) => {
+    // Combine all subscriptions into a single channel to reduce overhead
+    const dataChannel = supabase.channel('parent-dashboard-updates')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'student_fees'
+      }, debouncedRefresh)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'other_payments'
+      }, debouncedRefresh)
+      .subscribe();
+    
+    return () => {
+      if (refreshTimeout) clearTimeout(refreshTimeout);
+      supabase.removeChannel(dataChannel);
+    };
+  }, [currentUser.id]);
+
+  const handlePaySpecificFee = async (feeId: string, studentName: string, monthName: string, amount: number) => {
+    try {
+      // Show loading toast
+      const loadingToast = toast.loading(`Redirecting to BML Gateway for ${monthName} payment...`);
+
+      // In a real implementation, this would redirect to BML Gateway
+      setTimeout(() => {
+        toast.dismiss(loadingToast);
+        toast.success(`Payment gateway opened for ${studentName} - ${monthName} (MVR ${amount.toLocaleString()})`);
+        console.log("BML Gateway integration - Fee ID:", feeId);
+      }, 1500);
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error("Failed to initiate payment. Please try again.");
+    }
+  };
+
+  const handlePayOtherPayment = async (paymentId: string, studentName: string, paymentName: string, amount: number) => {
+    try {
+      // Show loading toast
+      const loadingToast = toast.loading(`Redirecting to BML Gateway for ${paymentName} payment...`);
+
+      // In a real implementation, this would redirect to BML Gateway
+      setTimeout(() => {
+        toast.dismiss(loadingToast);
+        toast.success(`Payment gateway opened for ${studentName} - ${paymentName} (MVR ${amount.toLocaleString()})`);
+        console.log("BML Gateway integration - Payment ID:", paymentId);
+      }, 1500);
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error("Failed to initiate payment. Please try again.");
+    }
+  };
+
+  const handlePayFee = async (studentId: string) => {
     const student = students.find(s => s.id === studentId);
-    if (student) {
-      toast.success(`Redirecting to payment gateway for ${student.name}'s fee...`);
-      console.log("Initiating payment for student:", studentId);
+    if (student && student.currentFee.status !== 'paid') {
+      try {
+        // Find the actual fee record to pay
+        const { data: feeData, error } = await supabase
+          .from('student_fees')
+          .select(`
+            *,
+            school_months!inner(
+              month_name,
+              school_years!inner(year)
+            )
+          `)
+          .eq('student_id', studentId)
+          .eq('status', student.currentFee.status)
+          .single();
+
+        if (error || !feeData) {
+          toast.error("Fee not found");
+          return;
+        }
+
+        // Show loading toast
+        const loadingToast = toast.loading(`Redirecting to BML Gateway for ${student.currentFee.month} payment...`);
+
+        // In a real implementation, this would redirect to BML Gateway
+        setTimeout(() => {
+          toast.dismiss(loadingToast);
+          toast.success(`Payment gateway opened for ${student.name} - ${student.currentFee.month} (MVR ${student.currentFee.amount.toLocaleString()})`);
+          console.log("BML Gateway integration - Fee ID:", feeData.id);
+        }, 1500);
+      } catch (error) {
+        console.error('Payment error:', error);
+        toast.error("Failed to initiate payment. Please try again.");
+      }
     }
   };
 
@@ -179,43 +356,162 @@ export const ParentDashboard = ({
     switch (activeTab) {
       case 'overview':
         return (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Welcome Message */}
-            <div className="text-center text-lg font-semibold text-gray-700 mb-4">
+            <div className="text-center text-base sm:text-lg font-semibold text-gray-700 mb-3 sm:mb-4 mobile-text">
               Welcome to WAFA Preschool Monthly Fee Management Portal
             </div>
 
-            {/* Student Cards */}
-            <div className="space-y-4">
+            {/* Unpaid Fees Section */}
+            <div className="space-y-3 sm:space-y-4">
               <div className="flex justify-between items-center">
-                <h2 className="font-bold text-lg">Your Children</h2>
+                <h2 className="font-bold text-base sm:text-lg mobile-text">Unpaid Fees & Other Payments</h2>
               </div>
 
               {loading ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-3 sm:gap-4">
                   {[1, 2].map(i => (
                     <div key={i} className="animate-pulse">
-                      <div className="bg-muted h-48 rounded-lg"></div>
+                      <div className="bg-muted h-36 sm:h-48 rounded-lg"></div>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {students.length > 0 ? (
-                    students.map(student => (
-                      <StudentCard
-                        key={student.id}
-                        student={student}
-                        onPayFee={handlePayFee}
-                        onViewDetails={handleViewHistory}
-                        isParentView={true}
-                      />
-                    ))
-                  ) : (
-                    <div className="col-span-full text-center py-8">
-                      <p className="text-muted-foreground">No students found</p>
-                    </div>
-                  )}
+                <div className="space-y-4">
+                  {(() => {
+                    // Create a map to track unique students with pending payments
+                    const studentsWithPendingPayments = new Map();
+
+                    // Add students with unpaid fees
+                    students.forEach(student => {
+                      const unpaidFees = allStudentFees.filter(fee => 
+                        fee.student_id === student.id && 
+                        (fee.status === 'pending' || fee.status === 'overdue')
+                      );
+
+                      if (unpaidFees.length > 0) {
+                        studentsWithPendingPayments.set(student.id, {
+                          student,
+                          unpaidFees: unpaidFees.sort((a, b) => 
+                            new Date(a.school_months.due_date).getTime() - new Date(b.school_months.due_date).getTime()
+                          ),
+                          pendingOtherPayments: []
+                        });
+                      }
+                    });
+
+                    // Add or update students with pending other payments
+                    students.forEach(student => {
+                      const pendingOtherPayments = otherPayments.filter(payment => 
+                        payment.student_id === student.id && 
+                        payment.status === 'pending'
+                      );
+
+                      if (pendingOtherPayments.length > 0) {
+                        if (studentsWithPendingPayments.has(student.id)) {
+                          studentsWithPendingPayments.get(student.id).pendingOtherPayments = pendingOtherPayments;
+                        } else {
+                          studentsWithPendingPayments.set(student.id, {
+                            student,
+                            unpaidFees: [],
+                            pendingOtherPayments
+                          });
+                        }
+                      }
+                    });
+
+                    const studentsArray = Array.from(studentsWithPendingPayments.values());
+
+                    if (studentsArray.length === 0) {
+                      return (
+                        <div className="text-center py-8">
+                          <CheckCircle className="h-16 w-16 text-success mx-auto mb-4" />
+                          <h3 className="text-lg font-semibold text-success mb-2">No Pending Payments!</h3>
+                          <p className="text-muted-foreground">All fees and other payments are up to date</p>
+                        </div>
+                      );
+                    }
+
+                    return studentsArray.map(({ student, unpaidFees, pendingOtherPayments }) => (
+                      <Card key={student.id} className="border-l-4 border-l-warning">
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <CardTitle className="flex items-center gap-2">
+                                <AlertCircle className="h-5 w-5 text-warning" />
+                                {student.name}
+                              </CardTitle>
+                              <CardDescription>Class: {student.class}</CardDescription>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="bg-warning text-warning-foreground">
+                                {unpaidFees.length + pendingOtherPayments.length} Pending
+                              </Badge>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {/* Unpaid Monthly Fees */}
+                            {unpaidFees.map(fee => (
+                              <div key={`fee-${fee.id}`} className="flex items-center justify-between p-3 rounded-lg border bg-background">
+                                <div>
+                                  <p className="font-medium">
+                                    {fee.school_months.month_name} {fee.school_months.school_years.year}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Due: {new Date(fee.school_months.due_date).toLocaleDateString()}
+                                  </p>
+                                  <p className="text-sm font-semibold">MVR {fee.amount.toLocaleString()}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {fee.status === 'overdue' ? (
+                                    <Badge variant="destructive">Overdue</Badge>
+                                  ) : (
+                                    <Badge variant="secondary" className="bg-warning text-warning-foreground">Pending</Badge>
+                                  )}
+                                  <Button
+                                    onClick={() => handlePaySpecificFee(fee.id, student.name, fee.school_months.month_name, fee.amount)}
+                                    variant={fee.status === 'overdue' ? "destructive" : "default"}
+                                    size="sm"
+                                    className="ml-2"
+                                  >
+                                    <CreditCard className="h-4 w-4 mr-1" />
+                                    Pay Now
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                            
+                            {/* Pending Other Payments */}
+                            {pendingOtherPayments.map(payment => (
+                              <div key={`other-${payment.id}`} className="flex items-center justify-between p-3 rounded-lg border bg-blue-50">
+                                <div>
+                                  <p className="font-medium">{payment.payment_name}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Added: {new Date(payment.created_at).toLocaleDateString()}
+                                  </p>
+                                  <p className="text-sm font-semibold text-blue-700">MVR {payment.amount.toLocaleString()}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">Other Payment</Badge>
+                                  <Button
+                                    onClick={() => handlePayOtherPayment(payment.id, student.name, payment.payment_name, payment.amount)}
+                                    variant="default"
+                                    size="sm"
+                                    className="ml-2 bg-blue-600 hover:bg-blue-700"
+                                  >
+                                    <CreditCard className="h-4 w-4 mr-1" />
+                                    Pay Now
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ));
+                  })()}
                 </div>
               )}
             </div>
@@ -281,13 +577,13 @@ export const ParentDashboard = ({
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900 ml-12 lg:ml-0">
+            <div className="mobile-container">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 ml-12 lg:ml-0">
                 WAFA Pre School - Parent Portal
               </h1>
-              <p className="text-gray-600 ml-12 lg:ml-0">
+              <p className="text-sm sm:text-base text-gray-600 ml-12 lg:ml-0 mobile-text">
                 Monitor your children's fees and payment history
               </p>
             </div>
@@ -295,8 +591,8 @@ export const ParentDashboard = ({
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 overflow-auto p-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex-1 overflow-auto p-4 sm:p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-6">
             {renderTabContent()}
           </div>
         </div>

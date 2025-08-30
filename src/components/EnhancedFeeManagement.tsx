@@ -11,6 +11,7 @@ import { Calendar, Users, Plus, Edit, Trash2, ChevronDown, ChevronRight } from "
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { MonthFeeAssignment } from "./MonthFeeAssignment";
+import { OtherPaymentAssignment } from "./OtherPaymentAssignment";
 
 interface SchoolYear {
   id: string;
@@ -237,10 +238,10 @@ export const EnhancedFeeManagement = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Fee Management</h2>
-        <p className="text-muted-foreground">Manage academic years, months, and assign fees to students</p>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="mobile-container">
+        <h2 className="text-xl sm:text-2xl font-bold mobile-text">Fee Management</h2>
+        <p className="text-sm sm:text-base text-muted-foreground mobile-text">Manage academic years, months, and assign fees to students</p>
       </div>
 
       {schoolYears.map((year) => {
@@ -251,47 +252,51 @@ export const EnhancedFeeManagement = () => {
           <Card key={year.id} className="bg-gradient-card">
             <CardHeader>
               <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleYearExpanded(year.id)}
-                    className="p-1 h-8 w-8"
-                  >
-                    {isExpanded ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <div>
-                    <CardTitle className="text-xl">Academic Year {year.year}</CardTitle>
-                    <CardDescription>
-                      {yearMonths.length} month{yearMonths.length !== 1 ? 's' : ''} configured
-                    </CardDescription>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
+                 <div className="flex items-center gap-2 sm:gap-3">
+                   <Button
+                     variant="ghost"
+                     size="sm"
+                     onClick={() => toggleYearExpanded(year.id)}
+                     className="p-1 h-6 w-6 sm:h-8 sm:w-8"
+                   >
+                     {isExpanded ? (
+                       <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                     ) : (
+                       <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4" />
+                     )}
+                   </Button>
+                   <div>
+                     <CardTitle className="text-lg sm:text-xl mobile-text">Academic Year {year.year}</CardTitle>
+                     <CardDescription className="text-sm mobile-text">
+                       {yearMonths.length} month{yearMonths.length !== 1 ? 's' : ''} configured
+                     </CardDescription>
+                   </div>
+                 </div>
+                 <div className="flex items-center gap-1 sm:gap-2">
                   {year.is_active && (
                     <Badge variant="default" className="bg-success text-success-foreground">Active</Badge>
                   )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEditingYear(year)}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setYearToDelete(year.id);
-                      setShowDeleteYearDialog(true);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={() => setEditingYear(year)}
+                     className="h-8 w-8 p-0 sm:h-9 sm:w-auto sm:px-3"
+                   >
+                     <Edit className="h-3 w-3 sm:h-4 sm:w-4" />
+                     <span className="sr-only sm:not-sr-only sm:ml-1">Edit</span>
+                   </Button>
+                   <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={() => {
+                       setYearToDelete(year.id);
+                       setShowDeleteYearDialog(true);
+                     }}
+                     className="h-8 w-8 p-0 sm:h-9 sm:w-auto sm:px-3"
+                   >
+                     <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                     <span className="sr-only sm:not-sr-only sm:ml-1">Delete</span>
+                   </Button>
                 </div>
               </div>
             </CardHeader>
@@ -329,6 +334,7 @@ export const EnhancedFeeManagement = () => {
                             </div>
                             <div className="flex items-center gap-2">
                               <MonthFeeAssignment month={month} />
+                              <OtherPaymentAssignment year={year.year} />
                               <Button
                                 variant="outline"
                                 size="sm"

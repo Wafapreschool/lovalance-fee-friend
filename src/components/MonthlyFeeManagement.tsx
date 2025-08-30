@@ -80,22 +80,33 @@ export const MonthlyFeeManagement = () => {
 
       if (monthsError) throw monthsError;
 
-      // Fetch all students
-      const { data: studentsData, error: studentsError } = await supabase
-        .from('students')
-        .select('*')
-        .order('full_name', { ascending: true });
-
-      if (studentsError) throw studentsError;
-
       setSchoolYears(yearsData || []);
       setSchoolMonths(monthsData || []);
-      setStudents(studentsData || []);
     } catch (error) {
       console.error('Error fetching initial data:', error);
       toast.error("Failed to load data");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchStudentsForYear = async (yearId: string) => {
+    try {
+      // Get the year number for the selected year
+      const selectedYear = schoolYears.find(y => y.id === yearId);
+      if (!selectedYear) return;
+
+      const { data: studentsData, error: studentsError } = await supabase
+        .from('students')
+        .select('*')
+        .eq('year_joined', selectedYear.year)
+        .order('full_name', { ascending: true });
+
+      if (studentsError) throw studentsError;
+      setStudents(studentsData || []);
+    } catch (error) {
+      console.error('Error fetching students for year:', error);
+      toast.error("Failed to load students for this year");
     }
   };
 
@@ -125,12 +136,19 @@ export const MonthlyFeeManagement = () => {
       setSelectedStudents([]);
       setFeeAmount("");
       setExistingFees([]);
+      setStudents([]);
     } else {
-      // Open new month
-      setActiveMonth(monthId);
-      await fetchExistingFees(monthId);
-      setSelectedStudents([]);
-      setFeeAmount("");
+      // Open new month and fetch students for that year
+      const selectedMonth = schoolMonths.find(m => m.id === monthId);
+      if (selectedMonth) {
+        setActiveMonth(monthId);
+        await Promise.all([
+          fetchExistingFees(monthId),
+          fetchStudentsForYear(selectedMonth.school_year_id)
+        ]);
+        setSelectedStudents([]);
+        setFeeAmount("");
+      }
     }
   };
 

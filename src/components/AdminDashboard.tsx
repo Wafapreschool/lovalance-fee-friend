@@ -173,13 +173,13 @@ export const AdminDashboard = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900 ml-12 lg:ml-0">
+            <div className="mobile-container">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-semibold text-gray-900 ml-12 lg:ml-0">
                 WAFA Pre School - Admin Dashboard
               </h1>
-              <p className="text-gray-600 ml-12 lg:ml-0">
+              <p className="text-sm sm:text-base text-gray-600 ml-12 lg:ml-0 mobile-text">
                 Manage students, fees, and generate reports
               </p>
             </div>
@@ -187,55 +187,55 @@ export const AdminDashboard = () => {
         </div>
 
         {/* Stats Overview */}
-        <div className="flex-1 overflow-auto p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="flex-1 overflow-auto p-4 sm:p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
             <Card className="bg-gradient-card">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Students</CardTitle>
-                <Users className="h-4 w-4 text-primary" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Total Students</CardTitle>
+                <Users className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{totalStudents}</div>
+                <div className="text-lg sm:text-2xl font-bold">{totalStudents}</div>
                 <p className="text-xs text-muted-foreground">Active enrollments</p>
               </CardContent>
             </Card>
 
             <Card className="bg-gradient-card">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Paid Fees</CardTitle>
-                <CreditCard className="h-4 w-4 text-success" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Paid Fees</CardTitle>
+                <CreditCard className="h-3 w-3 sm:h-4 sm:w-4 text-success" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-success">{paidFees}</div>
+                <div className="text-lg sm:text-2xl font-bold text-success">{paidFees}</div>
                 <p className="text-xs text-muted-foreground">This month</p>
               </CardContent>
             </Card>
 
             <Card className="bg-gradient-card">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Pending Fees</CardTitle>
-                <AlertCircle className="h-4 w-4 text-warning" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Pending Fees</CardTitle>
+                <AlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-warning" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-warning">{pendingFees}</div>
+                <div className="text-lg sm:text-2xl font-bold text-warning">{pendingFees}</div>
                 <p className="text-xs text-muted-foreground">Awaiting payment</p>
               </CardContent>
             </Card>
 
             <Card className="bg-gradient-card">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Revenue</CardTitle>
-                <TrendingUp className="h-4 w-4 text-primary" />
+                <CardTitle className="text-xs sm:text-sm font-medium">Revenue</CardTitle>
+                <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 text-primary" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">MVR {totalRevenue.toLocaleString()}</div>
+                <div className="text-lg sm:text-2xl font-bold">MVR {totalRevenue.toLocaleString()}</div>
                 <p className="text-xs text-muted-foreground">This month</p>
               </CardContent>
             </Card>
           </div>
 
           {/* Tab Content */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-3 sm:p-6">
             {renderTabContent()}
           </div>
         </div>
