@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft, Eye, EyeOff, Lock, User, Shield } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -25,13 +26,25 @@ export const AdminLogin = ({
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { signIn } = useAuth();
   const isMobile = useIsMobile();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    
     try {
-      if (username === 'admin' && password === 'admin123') {
+      // Use Supabase authentication
+      const { error } = await signIn(username, password);
+      
+      if (error) {
+        toast({
+          title: "Login Failed",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        // Successfully authenticated with Supabase
         onLogin({
           id: 'admin',
           name: 'Administrator',
@@ -40,12 +53,6 @@ export const AdminLogin = ({
         toast({
           title: "Login Successful",
           description: "Welcome to the admin dashboard"
-        });
-      } else {
-        toast({
-          title: "Login Failed",
-          description: "Invalid admin credentials",
-          variant: "destructive"
         });
       }
     } catch (error) {
@@ -157,13 +164,10 @@ export const AdminLogin = ({
                 </div>
               </div>
 
-              {/* Demo Credentials */}
+              {/* Authentication Notice */}
               <div className="text-xs text-gray-600 bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <p className="font-medium mb-2 text-blue-800">Demo Credentials:</p>
-                <div className="space-y-1">
-                  <p>Username: <span className="font-mono bg-blue-100 px-2 py-1 rounded">admin</span></p>
-                  <p>Password: <span className="font-mono bg-blue-100 px-2 py-1 rounded">admin123</span></p>
-                </div>
+                <p className="font-medium mb-2 text-blue-800">Admin Access:</p>
+                <p>Use your Supabase admin credentials to authenticate</p>
               </div>
 
               <Button 
