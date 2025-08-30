@@ -100,8 +100,22 @@ export const MonthFeeAssignment = ({ month }: MonthFeeAssignmentProps) => {
   useEffect(() => {
     if (open) {
       setLoading(true);
+      // Clear previous data when opening dialog
+      setStudents([]);
+      setFilteredStudents([]);
+      setSelectedStudents([]);
+      setExistingFees([]);
+      
       Promise.all([fetchStudents(), fetchExistingFees()])
         .finally(() => setLoading(false));
+    } else {
+      // Clear data when closing dialog to prevent showing wrong data next time
+      setStudents([]);
+      setFilteredStudents([]);
+      setSelectedStudents([]);
+      setExistingFees([]);
+      setSearchTerm("");
+      setFeeAmount("");
     }
   }, [open, month.id]);
 

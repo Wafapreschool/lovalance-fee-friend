@@ -125,6 +125,12 @@ export const YearBasedStudentManagement = () => {
   }, [searchTerm, students]);
 
   const handleViewStudents = (schoolYear: SchoolYear) => {
+    // Clear previous data first
+    setStudents([]);
+    setFilteredStudents([]);
+    setSelectedStudents([]);
+    setSearchTerm("");
+    
     setSelectedYear(schoolYear);
     fetchStudentsForYear(schoolYear.year);
     setShowStudentsDialog(true);
@@ -459,7 +465,17 @@ export const YearBasedStudentManagement = () => {
         ))}
       </div>
 
-      <Dialog open={showStudentsDialog} onOpenChange={setShowStudentsDialog}>
+      <Dialog open={showStudentsDialog} onOpenChange={(open) => {
+        setShowStudentsDialog(open);
+        // Clear data when closing to prevent showing wrong students next time
+        if (!open) {
+          setStudents([]);
+          setFilteredStudents([]);
+          setSelectedStudents([]);
+          setSearchTerm("");
+          setSelectedYear(null);
+        }
+      }}>
         <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
