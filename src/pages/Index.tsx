@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { RoleCard } from "@/components/RoleCard";
 import { AdminLogin } from "@/components/AdminLogin";
@@ -9,6 +9,8 @@ import { DatabaseTest } from "@/components/DatabaseTest";
 import { Shield, Heart, Users, CreditCard, BarChart3, Bell } from "lucide-react";
 import heroImage from "@/assets/preschool-hero.jpg";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 type UserData = {
   id: string;
@@ -22,7 +24,41 @@ const Index = () => {
   const [appState, setAppState] = useState<AppState>('welcome');
   const [selectedRole, setSelectedRole] = useState<'admin' | 'parent' | null>(null);
   const [currentUser, setCurrentUser] = useState<UserData | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const { user, session, loading } = useAuth();
   const isMobile = useIsMobile();
+
+  // Check user role when authenticated
+  useEffect(() => {
+    if (user && session) {
+      const checkUserRole = async () => {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .single();
+
+        if (data && !error) {
+          setUserRole(data.role);
+          setCurrentUser({
+            id: user.id,
+            name: data.role === 'admin' ? 'Administrator' : 'Parent',
+            type: data.role as 'admin' | 'parent'
+          });
+          setAppState('dashboard');
+        }
+      };
+      
+      checkUserRole();
+    } else if (!loading) {
+      // User is not authenticated, reset state
+      setCurrentUser(null);
+      setUserRole(null);
+      if (appState === 'dashboard') {
+        setAppState('welcome');
+      }
+    }
+  }, [user, session, loading]);
 
   const handleRoleSelect = (role: 'admin' | 'parent') => {
     setSelectedRole(role);
@@ -30,17 +66,23 @@ const Index = () => {
   };
 
   const handleLogin = (userData: UserData) => {
-    setCurrentUser(userData);
-    setAppState('dashboard');
+    // Login is now handled by the useEffect that watches for auth changes
+    // This function is kept for compatibility with the login components
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setCurrentUser(null);
     setSelectedRole(null);
+    setUserRole(null);
     setAppState('welcome');
   };
 
-  const handleBack = () => {
+  const handleBack = async () => {
+    // Sign out from Supabase if user is authenticated
+    if (user) {
+      await supabase.auth.signOut();
+    }
     setSelectedRole(null);
     setAppState('welcome');
   };
