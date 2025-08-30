@@ -68,7 +68,7 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded, defaultYear
       }
 
       // Create parent auth account automatically
-      const authEmail = `${studentId}@parent.local`;
+      const authEmail = `parent.${studentId}@school.com`;
       
       const { data: authUser, error: authError } = await supabase.auth.signUp({
         email: authEmail,
@@ -100,7 +100,7 @@ export const AddStudentForm = ({ open, onOpenChange, onStudentAdded, defaultYear
         }
       }
 
-      toast.success(`Student and parent account created! ID: ${studentId}, Password: ${password}`);
+      toast.success(`Student and parent account created!\nStudent ID: ${studentId}\nPassword: ${password}\n\nParent Login:\nEmail: parent.${studentId}@school.com\nPassword: ${password}`);
       setFormData({
         full_name: "",
         class_name: "",

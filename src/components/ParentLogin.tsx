@@ -56,7 +56,7 @@ export const ParentLogin = ({
       }
 
       // Create or get auth user for this student
-      const authEmail = `${studentId}@parent.local`;
+      const authEmail = `parent.${studentId}@school.com`;
       
       // Try to sign in first
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
@@ -207,15 +207,8 @@ export const ParentLogin = ({
               </Button>
             </form>
 
-            {/* Demo Credentials Section */}
+            {/* Parent Login Credentials Section */}
             <div className="text-center pt-4 border-t border-gray-200 space-y-2">
-              <div className="bg-blue-50/50 rounded-lg p-3 border border-blue-200/50">
-                <p className="font-medium text-blue-800 mb-1 text-sm">For Testing:</p>
-                <p className="text-xs">Student ID: <span className="font-mono font-semibold">454554</span></p>
-                <p className="text-xs">Password: <span className="font-mono font-semibold">xg90phxa</span></p>
-                <p className="text-xs text-blue-600 mt-1">Use this to test the parent dashboard</p>
-              </div>
-              
               <p className="text-xs text-gray-500">
                 <HelpCircle className="inline h-3 w-3 mr-1" />
                 Need help? Contact the school office
