@@ -41,79 +41,34 @@ export const ParentLogin = ({
     setIsLoading(true);
     
     try {
-      // Try to find existing parent account or create one
-      // First verify the student credentials in the students table
+      // Verify student credentials exactly as shown in admin dashboard
       const { data: student, error: studentError } = await supabase
         .from('students')
         .select('*')
         .eq('student_id', studentId)
         .eq('password', password)
-        .single();
+        .maybeSingle();
 
-      if (studentError || !student) {
-        toast.error("Invalid student ID or password");
+      if (studentError) {
+        console.error('Database error:', studentError);
+        toast.error("Database error occurred");
         setIsLoading(false);
         return;
       }
 
-      // Use student ID directly as email format for auth
-      const authEmail = `${studentId}@school.local`;
-      
-      // Try to sign in first
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: authEmail,
-        password: password
+      if (!student) {
+        toast.error("Invalid Student ID or Password");
+        setIsLoading(false);
+        return;
+      }
+
+      // Successfully verified - call parent login directly
+      onLogin({
+        id: student.id,
+        name: `Parent of ${student.full_name}`,
+        type: 'parent'
       });
 
-      if (signInError && signInError.message.includes('Invalid login credentials')) {
-        // User doesn't exist, create them
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email: authEmail,
-          password: password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: {
-              full_name: `Parent of ${student.full_name}`,
-              student_id: student.id
-            }
-          }
-        });
-
-        if (signUpError) {
-          console.error('Sign up error:', signUpError);
-          toast.error("Failed to create account");
-          setIsLoading(false);
-          return;
-        }
-
-        // Create user role linking to student
-        if (signUpData.user) {
-          const { error: roleError } = await supabase
-            .from('user_roles')
-            .insert({
-              user_id: signUpData.user.id,
-              role: 'student',
-              student_id: student.id
-            });
-
-          if (roleError) {
-            console.error('Role creation error:', roleError);
-          }
-        }
-
-        toast.success("Account created! Please sign in again.");
-        setIsLoading(false);
-        return;
-      }
-
-      if (signInError) {
-        console.error('Sign in error:', signInError);
-        toast.error("Sign in failed");
-        setIsLoading(false);
-        return;
-      }
-
-      // Success! The auth state change will be handled by the useAuth hook
       toast.success(`Welcome, Parent of ${student.full_name}!`);
       
     } catch (error) {
