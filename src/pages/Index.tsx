@@ -30,34 +30,46 @@ const Index = () => {
 
   // Check user role when authenticated
   useEffect(() => {
+    console.log('useEffect triggered:', { user: !!user, session: !!session, loading, currentUser: !!currentUser, appState });
+    
     if (user && session) {
+      console.log('Admin user detected, checking role...');
       const checkUserRole = async () => {
-        const { data, error } = await supabase
-          .from('user_roles')
-          .select('role')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        try {
+          const { data, error } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user.id)
+            .maybeSingle();
 
-        if (data && !error) {
-          setUserRole(data.role);
-          setCurrentUser({
-            id: user.id,
-            name: data.role === 'admin' ? 'Administrator' : 'Parent',
-            type: data.role as 'admin' | 'parent'
-          });
-          setAppState('dashboard');
+          console.log('User role query result:', { data, error });
+
+          if (data && !error) {
+            console.log('Setting admin user state...');
+            setUserRole(data.role);
+            setCurrentUser({
+              id: user.id,
+              name: data.role === 'admin' ? 'Administrator' : 'Parent',
+              type: data.role as 'admin' | 'parent'
+            });
+            setAppState('dashboard');
+            console.log('Admin login complete - redirecting to dashboard');
+          } else {
+            console.log('No role found or error:', error);
+          }
+        } catch (err) {
+          console.error('Error checking user role:', err);
         }
       };
       
       checkUserRole();
-    } else if (!loading && !currentUser) {
-      // User is not authenticated and no simple login, reset state
+    } else if (!loading && !currentUser && appState === 'dashboard') {
+      // Only reset if we're in dashboard state but have no valid user
+      console.log('Resetting state - no valid user in dashboard');
       setUserRole(null);
-      if (appState === 'dashboard') {
-        setAppState('welcome');
-      }
+      setAppState('welcome');
     }
-  }, [user, session, loading]);
+  }, [user, session, loading]); // Removed currentUser and appState from dependencies to prevent loops
 
   const handleRoleSelect = (role: 'admin' | 'parent') => {
     setSelectedRole(role);

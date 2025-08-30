@@ -97,6 +97,9 @@ export const ParentLogin = ({
         type: 'parent'
       });
       
+      // Ensure we're not loading anymore before calling onLogin
+      setIsLoading(false);
+      
       onLogin({
         id: student.id,
         name: `Parent of ${student.full_name}`,
