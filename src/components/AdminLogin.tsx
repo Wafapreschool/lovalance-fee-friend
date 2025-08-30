@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Eye, EyeOff, Lock, User, Shield } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AdminLoginProps {
   onLogin: (userData: {
@@ -20,7 +21,7 @@ export const AdminLogin = ({
   onLogin,
   onBack
 }: AdminLoginProps) => {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -31,21 +32,47 @@ export const AdminLogin = ({
     e.preventDefault();
     setIsLoading(true);
     try {
-      if (username === 'admin' && password === 'admin123') {
+      const { error, data } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        toast({
+          title: "Login Failed",
+          description: error.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (data.user) {
+        // Check if user has admin role
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .eq('role', 'admin')
+          .single();
+
+        if (roleError || !roleData) {
+          await supabase.auth.signOut();
+          toast({
+            title: "Access Denied",
+            description: "You don't have admin privileges",
+            variant: "destructive"
+          });
+          return;
+        }
+
         onLogin({
-          id: 'admin',
+          id: data.user.id,
           name: 'Administrator',
           type: 'admin'
         });
         toast({
           title: "Login Successful",
           description: "Welcome to the admin dashboard"
-        });
-      } else {
-        toast({
-          title: "Login Failed",
-          description: "Invalid admin credentials",
-          variant: "destructive"
         });
       }
     } catch (error) {
@@ -111,17 +138,17 @@ export const AdminLogin = ({
           <CardContent className="space-y-6 px-6 pb-8">
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-medium text-gray-700">
-                  Admin Username
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                  Admin Email
                 </Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input 
-                    id="username" 
-                    type="text" 
-                    placeholder="Enter admin username" 
-                    value={username} 
-                    onChange={e => setUsername(e.target.value)} 
+                    id="email" 
+                    type="email" 
+                    placeholder="Enter admin email" 
+                    value={email} 
+                    onChange={e => setEmail(e.target.value)} 
                     required 
                     className="pl-10 h-12 bg-gray-50 border-gray-200 focus:border-blue-500 focus:ring-blue-500 transition-all duration-200" 
                   />
@@ -161,7 +188,7 @@ export const AdminLogin = ({
               <div className="text-xs text-gray-600 bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <p className="font-medium mb-2 text-blue-800">Demo Credentials:</p>
                 <div className="space-y-1">
-                  <p>Username: <span className="font-mono bg-blue-100 px-2 py-1 rounded">admin</span></p>
+                  <p>Email: <span className="font-mono bg-blue-100 px-2 py-1 rounded">admin@school.com</span></p>
                   <p>Password: <span className="font-mono bg-blue-100 px-2 py-1 rounded">admin123</span></p>
                 </div>
               </div>
