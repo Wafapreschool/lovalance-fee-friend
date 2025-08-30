@@ -44,6 +44,14 @@ export const ParentLogin = ({
       // Debug: Log the credentials being used
       console.log('Attempting login with:', { studentId, password });
       
+      // First, let's check if we can access students table at all
+      const { data: allStudents, error: accessError } = await supabase
+        .from('students')
+        .select('student_id, full_name')
+        .limit(5);
+      
+      console.log('Can access students?', { allStudents, accessError });
+      
       // Verify student credentials exactly as shown in admin dashboard
       const { data: student, error: studentError } = await supabase
         .from('students')
@@ -56,23 +64,27 @@ export const ParentLogin = ({
 
       if (studentError) {
         console.error('Database error:', studentError);
-        toast.error("Database error occurred");
+        toast.error(`Database error: ${studentError.message}`);
         setIsLoading(false);
         return;
       }
 
       if (!student) {
         // Try to find the student to give better error message
-        const { data: studentCheck } = await supabase
+        const { data: studentCheck, error: checkError } = await supabase
           .from('students')
           .select('student_id, full_name')
           .eq('student_id', studentId.trim())
           .maybeSingle();
         
-        if (studentCheck) {
+        console.log('Student check result:', { studentCheck, checkError });
+        
+        if (checkError) {
+          toast.error(`Error checking student: ${checkError.message}`);
+        } else if (studentCheck) {
           toast.error("Incorrect password for this Student ID");
         } else {
-          toast.error("Student ID not found");
+          toast.error(`Student ID "${studentId}" not found. Available IDs: ${allStudents?.map(s => s.student_id).join(', ') || 'None'}`);
         }
         setIsLoading(false);
         return;
