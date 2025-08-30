@@ -41,6 +41,7 @@ export const ParentLogin = ({
     setIsLoading(true);
     
     try {
+      // Try to find existing parent account or create one
       // First verify the student credentials in the students table
       const { data: student, error: studentError } = await supabase
         .from('students')
@@ -55,8 +56,8 @@ export const ParentLogin = ({
         return;
       }
 
-      // Create or get auth user for this student
-      const authEmail = `parent.${studentId}@school.com`;
+      // Use student ID directly as email format for auth
+      const authEmail = `${studentId}@school.local`;
       
       // Try to sign in first
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
