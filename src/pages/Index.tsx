@@ -36,7 +36,7 @@ const Index = () => {
           .from('user_roles')
           .select('role')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (data && !error) {
           setUserRole(data.role);
@@ -50,9 +50,8 @@ const Index = () => {
       };
       
       checkUserRole();
-    } else if (!loading) {
-      // User is not authenticated, reset state
-      setCurrentUser(null);
+    } else if (!loading && !currentUser) {
+      // User is not authenticated and no simple login, reset state
       setUserRole(null);
       if (appState === 'dashboard') {
         setAppState('welcome');
@@ -66,12 +65,19 @@ const Index = () => {
   };
 
   const handleLogin = (userData: UserData) => {
-    // Login is now handled by the useEffect that watches for auth changes
-    // This function is kept for compatibility with the login components
+    // For parent login, set the user directly since we're using simple credentials
+    if (userData.type === 'parent') {
+      setCurrentUser(userData);
+      setUserRole('parent');
+      setAppState('dashboard');
+    }
+    // Admin login is handled by the useEffect that watches for auth changes
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    if (currentUser?.type === 'admin') {
+      await supabase.auth.signOut();
+    }
     setCurrentUser(null);
     setSelectedRole(null);
     setUserRole(null);
@@ -79,11 +85,13 @@ const Index = () => {
   };
 
   const handleBack = async () => {
-    // Sign out from Supabase if user is authenticated
-    if (user) {
+    // Sign out from Supabase only if admin was logged in
+    if (user && userRole === 'admin') {
       await supabase.auth.signOut();
     }
+    setCurrentUser(null);
     setSelectedRole(null);
+    setUserRole(null);
     setAppState('welcome');
   };
 
