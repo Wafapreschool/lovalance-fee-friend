@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_setup: {
+        Row: {
+          admin_email: string | null
+          created_at: string | null
+          id: string
+          notes: string | null
+          setup_completed: boolean | null
+        }
+        Insert: {
+          admin_email?: string | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          setup_completed?: boolean | null
+        }
+        Update: {
+          admin_email?: string | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          setup_completed?: boolean | null
+        }
+        Relationships: []
+      }
       fees: {
         Row: {
           amount: number
