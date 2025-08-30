@@ -41,13 +41,18 @@ export const ParentLogin = ({
     setIsLoading(true);
     
     try {
+      // Debug: Log the credentials being used
+      console.log('Attempting login with:', { studentId, password });
+      
       // Verify student credentials exactly as shown in admin dashboard
       const { data: student, error: studentError } = await supabase
         .from('students')
         .select('*')
-        .eq('student_id', studentId)
-        .eq('password', password)
+        .eq('student_id', studentId.trim())
+        .eq('password', password.trim())
         .maybeSingle();
+
+      console.log('Database response:', { student, studentError });
 
       if (studentError) {
         console.error('Database error:', studentError);
@@ -57,7 +62,18 @@ export const ParentLogin = ({
       }
 
       if (!student) {
-        toast.error("Invalid Student ID or Password");
+        // Try to find the student to give better error message
+        const { data: studentCheck } = await supabase
+          .from('students')
+          .select('student_id, full_name')
+          .eq('student_id', studentId.trim())
+          .maybeSingle();
+        
+        if (studentCheck) {
+          toast.error("Incorrect password for this Student ID");
+        } else {
+          toast.error("Student ID not found");
+        }
         setIsLoading(false);
         return;
       }
